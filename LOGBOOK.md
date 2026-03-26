@@ -80,3 +80,58 @@ The core idea, collaboration rules, and initial architectural direction have bee
 ### If Starting a New Chat
 
 Use this file together with `AGENTS.md` and `GUIDELINES.md` to restore the main project context quickly.
+
+## 📅 Log Entry: March 25th, 2026 - Initial Graph and Studio Setup
+
+### First Graph Implementation Started
+
+**What was completed:**
+
+- A first version of `src/graph.py` was written.
+- The graph uses a simple ReAct-style loop with tool calling.
+- A dummy math toolset was introduced as the first test tool surface.
+- The first tool scope was intentionally kept small: add, multiply, and divide behavior for basic graph testing.
+
+**Rationale:**
+
+- A minimal tool-using graph is a good first implementation slice.
+- It provides working infrastructure for message flow, tool calling, and tracing before profile-learning logic is added.
+
+### LangGraph Studio Connection Established
+
+**What was completed:**
+
+- A root `langgraph.json` file was added so the project can be loaded by LangGraph Studio.
+- LangSmith tracing environment variables were configured in `.env`.
+- The project was run with `langgraph dev`.
+- The local LangGraph API and Studio URL were successfully started.
+
+**Issues found and resolved during setup:**
+
+- A module import path issue prevented the graph from loading in Studio.
+- A model initialization issue in `ChatOpenAI` also prevented startup.
+- Both issues were fixed so the graph could load in the local LangGraph development server.
+
+**Concrete outcome:**
+
+- The project is now connected to LangGraph Studio and ready for interactive testing and trace inspection.
+
+### Development Workflow Clarified Further
+
+**What was clarified:**
+
+- The user wants debugging guidance in a teaching style, not just direct fixes.
+- Error handling support should explain how to read the traceback and identify the failing line before moving to the correction.
+- For LangChain and LangGraph questions, `AGENTS.md` was updated so Codex should consult the LangChain MCP documentation tool before answering.
+
+### Remote Repository Created
+
+**What was completed:**
+
+- A GitHub repository for the project was created.
+- The local repository was connected to the GitHub remote over SSH.
+- The `main` branch was pushed successfully and set to track `origin/main`.
+
+**Concrete outcome:**
+
+- The project now has a remote backup and a clean online checkpoint for future work.
