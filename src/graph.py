@@ -1,37 +1,27 @@
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
-# from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.graph import MessagesState, StateGraph, START, END
 
+from pydantic import BaseModel, Field
+from typing import Annotated
+
 from src.utilities import save_graph
+from src.tools import add, multiply, divide, subtract
 
 load_dotenv()
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
-@tool
-def add(a: float, b: float) -> float:
-    """
-    This function should be used to add two numbers
-    """
-    return a + b
+class Subagent(BaseModel):
+    "Configuration for specialized subagent"
+    name: Annotated[str, Field(description="This is the name of the subagent. Also know as `agent type`")]
+    description: Annotated[str, Field(description="This is reason why the agent should be called so main agent can select")]
+    prompt: Annotated[str, Field(description="This is the system prompt passed to the subagent when creating it")]
+    tools: Annotated[list[str], Field(description="Tools available to this subagent")] = Field(default_factory=list)
 
-@tool
-def multiply(a: float, b: float) -> float:
-    """
-    This function should be used to multiply two numbers
-    """
-    return a * b
 
-@tool
-def divide(a: float, b: float) -> float:
-    """
-    This function should be used to divide two numbers
-    """
-    return a / b
 
-tools = [add, multiply, divide]
+tools = [add, multiply, divide, subtract]
 llm_with_tools = llm.bind_tools(tools)
 
 def node(state: MessagesState) -> MessagesState:
