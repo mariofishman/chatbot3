@@ -24,6 +24,7 @@ This repository is for learning by building. The human author writes the code. T
 3. Highlight tradeoffs when there is more than one reasonable approach.
 4. Do not silently introduce abstractions unless they are clearly justified.
 5. Keep explanations grounded in the current files and current architecture.
+6. For questions about LangChain, LangGraph, and closely related framework behavior, always consult the LangChain MCP documentation tool before answering.
 
 ## Architecture Guidance
 
