@@ -11,7 +11,7 @@ It is a working plan for the next development stage and can change if implementa
 1. ✅ Create a `Subagent` class with the fields `name`, `description`, `tools`, and `system_prompt`.
 2. ✅ Reuse the existing toy math tools as the initial tool set for the subagent work.
 3. ✅ Add a new `subtract()` `@tool` to that tool set.
-4. Build a utility function that creates ReAct agents from a `Subagent`.
+4. ✅ Build a utility function that creates ReAct agents from a `Subagent`.
 5. Create the first test subagent and build a dictionary of subagents in the form `{name: compiled_agent}` using that utility.
 6. Create a string that lists all available subagents and what they are for.
 7. Create a main-agent `@tool` that can call a subagent by name and pass it task-specific input.

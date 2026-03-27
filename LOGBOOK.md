@@ -135,3 +135,86 @@ Use this file together with `AGENTS.md` and `GUIDELINES.md` to restore the main 
 **Concrete outcome:**
 
 - The project now has a remote backup and a clean online checkpoint for future work.
+
+## 📅 Log Entry: March 26th, 2026 - Subagent Architecture Planning
+
+### Subagent Direction Chosen
+
+**What was established:**
+
+- The next stage of the project should move beyond toy tool calling and begin introducing a subagent pattern.
+- The first implementation direction chosen was to create a subagent and wrap it behind a tool interface.
+- The subagent should remain narrow in scope at first and act as a bounded capability rather than a fully open-ended multi-agent system.
+
+**Rationale:**
+
+- This direction is closer to the real architecture the project will eventually need.
+- It preserves the learning-oriented approach by introducing only one new level of complexity at a time.
+
+### Short-Term Implementation Plan Created
+
+**What was completed:**
+
+- A dedicated `SHORT_TERM_PLAN.md` file was created to guide the next implementation stage.
+- The plan was intentionally written as a working plan rather than a rigid specification.
+- The early steps focus on subagent scaffolding, tool preparation, and a reusable agent-construction utility.
+
+**Important clarification reached:**
+
+- The tool-preparation steps were separated from the later subagent-construction step.
+- This made the plan more accurate: tools can be prepared first, and only attached to a concrete subagent later.
+
+### Subagent Model Scaffolded
+
+**What was completed:**
+
+- A `Subagent` model was introduced in `src/graph.py`.
+- The model captures the basic configuration needed for a specialized agent:
+  - `name`
+  - `description`
+  - prompt/system-prompt field
+  - `tools`
+- Optional tool configuration was handled with a default empty list.
+
+**Rationale:**
+
+- This establishes a clear separation between subagent configuration and subagent runtime construction.
+- It also creates a stable place for expanding agent metadata later.
+
+### Initial Tool Set Expanded
+
+**What was completed:**
+
+- The initial math tool set was kept and clarified as the first tool surface for subagent experimentation.
+- A new `subtract()` tool was added.
+- The tool set now covers the full basic arithmetic group needed for simple delegated testing:
+  - add
+  - subtract
+  - multiply
+  - divide
+
+**Concrete outcome:**
+
+- The project now has a more complete toy tool surface for testing subagent invocation patterns.
+
+### Agent Builder Refactor Started
+
+**What was clarified and implemented:**
+
+- A reusable builder utility was introduced in `src/builder.py`.
+- The graph-construction logic began moving out of `src/graph.py` into this reusable builder.
+- It was clarified that the model should be treated as a builder-time dependency rather than passed through graph state.
+- It was also clarified that the node function should be constructed inside the builder once the model and tools are known.
+
+**Rationale:**
+
+- This keeps graph construction cleaner.
+- It supports the upcoming step of creating multiple compiled agents from different `Subagent` configurations.
+
+### Development Approach Reinforced
+
+**What was reinforced:**
+
+- The project should continue moving step by step.
+- The implementation plan should be updated as understanding improves.
+- Architectural decisions made at this stage should remain provisional and easy to revise.
