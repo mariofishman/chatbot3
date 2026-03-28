@@ -22,32 +22,32 @@ class Subagent(BaseModel):
 
 SIMPLE_MATH_INSTRUCTIONS = "You're a calculator. Choose the operation or operations needed to make the calculatations. Make one or more Tool Calls in parallel to get the information needed. Keep on making Tool Calls until you have the final answer."
 
-tools = [add, multiply, divide, subtract]
-
 math_sub_agent = Subagent(name="math_agent",
                           description="This agent should be used when a math operation needs to be used",
                           prompt=SIMPLE_MATH_INSTRUCTIONS,
-                          tools=tools)
+                          tools=[add, multiply, divide, subtract])
+
 
 SIMPLE_RESEARCH_INSTRUCTIONS = """You are a researcher. Research the topic provided to you. IMPORTANT: Just make a single call to the web_search tool and use the result provided by the tool to answer the provided topic."""
-
 
 search_sub_agent = Subagent(name="search_agent",
                             description= "Delegate research to the sub-agent researcher. Only give this researcher one topic at a time.",
                             prompt= SIMPLE_RESEARCH_INSTRUCTIONS,
                             tools= [web_search])
 
+
 subagents = [math_sub_agent, search_sub_agent]
 
 agents = {agent.name: my_create_agent(model=llm, tools=agent.tools, prompt=agent.prompt) for agent in subagents}
 
-other_agents_string = [f"{agent.name} : {agent.description}" for agent in subagents]
+other_agents_string = "\n".join([f"{agent.name} : {agent.description}" for agent in subagents])
 
 
 TASK_DESCRIPTION_PREFIX = """Delegate a task to a specialized sub-agent with isolated context. Available agents for delegation are:
 {other_agents}
 """
 
+TASK_DESCRIPTION = TASK_DESCRIPTION_PREFIX.format(other_agents_string)
 
 """
 I need to create the tool I will pass to the main agent so it will call the correct subagent.
