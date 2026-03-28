@@ -14,10 +14,7 @@ def my_create_agent(model: BaseChatModel, tools: list[BaseTool], prompt: str | N
         
 
     def node(state: MessagesState) -> MessagesState:
-        if prompt is None:
-            messages = state["messages"]
-        else:
-            messages = [SystemMessage(prompt)] + state["messages"]
+        messages = state["messages"] if prompt is None else [SystemMessage(prompt)] + state["messages"]
         return {"messages": model.invoke(messages)}
     
     builder = StateGraph(MessagesState)
