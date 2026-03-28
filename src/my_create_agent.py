@@ -1,18 +1,24 @@
 from langchain_core.language_models import BaseChatModel
-from langchain_core.runnables import Runnable
+from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import MessagesState, StateGraph, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.graph.state import CompiledStateGraph
 
 
-def my_create_agent(model: BaseChatModel, tools: list[BaseTool]) -> CompiledStateGraph:
+def my_create_agent(model: BaseChatModel, tools: list[BaseTool], prompt: str | None = None) -> CompiledStateGraph:
     
     if tools:
         model = model.bind_tools(tools)
 
+        
+
     def node(state: MessagesState) -> MessagesState:
-        return {"messages": model.invoke(state["messages"])}
+        if prompt is None:
+            messages = state["messages"]
+        else:
+            messages = [SystemMessage(prompt)] + state["messages"]
+        return {"messages": model.invoke(messages)}
     
     builder = StateGraph(MessagesState)
 

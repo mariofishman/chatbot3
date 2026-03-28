@@ -218,3 +218,42 @@ Use this file together with `AGENTS.md` and `GUIDELINES.md` to restore the main 
 - The project should continue moving step by step.
 - The implementation plan should be updated as understanding improves.
 - Architectural decisions made at this stage should remain provisional and easy to revise.
+
+## 📅 Log Entry: March 28th, 2026 - Step 5 Completion: First Compiled Subagents
+
+### Step 5 Completed
+
+**What was completed:**
+
+- The first concrete subagents were created from the `Subagent` model.
+- Two subagents were introduced instead of one:
+  - a math subagent
+  - a search subagent
+- The reusable agent-construction utility was updated so it can optionally accept a system prompt.
+- A compiled subagent dictionary of the form `{name: compiled_agent}` was created.
+
+**Important clarification reached:**
+
+- Passing actual tool objects into the `Subagent` model was accepted as the right direction.
+- The `tools` field was updated to use tool objects rather than string names.
+- It was also clarified that an optional prompt should default to `None` and only be turned into a `SystemMessage` when present.
+
+**Concrete outcome:**
+
+- Step 5 of `SHORT_TERM_PLAN.md` is now complete.
+- The project now has multiple compiled subagents available for later delegation through the main agent.
+
+### Current Position
+
+The project now has:
+
+- a reusable agent builder,
+- a `Subagent` configuration model,
+- a compiled subagent map,
+- a working local LangGraph testing flow through both Studio and direct API calls.
+
+This leaves the next meaningful implementation steps focused on:
+
+- creating the string that lists available agents,
+- building the main-agent tool that delegates to them,
+- and then wiring the main agent around that delegation pattern.
