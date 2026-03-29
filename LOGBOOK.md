@@ -270,3 +270,106 @@ This leaves the next meaningful implementation steps focused on:
 
 - This creates a clean bridge between subagent configuration and the future main-agent delegation tool.
 - It keeps the available-agent context centralized and easier to maintain as more subagents are added.
+
+## 📅 Log Entry: March 28th, 2026 - Where I Stopped
+
+### Progress Since the Previous Entry
+
+**What was completed:**
+
+- Work began on step 7 by introducing a main-agent tool called `select_subagent` in `src/graph.py`.
+- The main agent was reconfigured to use `select_subagent` as its tool surface instead of the raw math tools.
+- The `select_subagent` tool was designed to:
+  - receive a task description,
+  - receive an `agent_name`,
+  - access graph state through `ToolRuntime`,
+  - append a `HumanMessage` for the delegated task,
+  - invoke the selected compiled subagent,
+  - return the final content from the subagent's last message.
+
+**Current code shape at the stopping point:**
+
+- `src/graph.py` contains:
+  - the `Subagent` model,
+  - two configured subagents (`math_agent` and `search_agent`),
+  - a compiled `agents` dictionary,
+  - a formatted delegation-context string,
+  - the new `select_subagent` tool,
+  - the main graph compiled with `select_subagent` as its tool.
+- `src/my_create_agent.py` still provides the shared ReAct-style graph builder with optional system prompt support.
+
+### Blocking Error Encountered
+
+The exact error encountered at the stopping point was:
+
+```text
+BadRequestError('Error code: 400 - {\'error\': {\'message\': "An assistant message with \'tool_calls\' must be followed by tool messages responding to each \'tool_call_id\'. The following tool_call_ids did not have response messages: call_Ncsw5nCEqMlsoxxpsY6KscsH", \'type\': \'invalid_request_error\', \'param\': \'messages.[3].role\', \'code\': None}}')
+```
+
+### Interpretation at the Stopping Point
+
+- The project had reached the first real attempt at delegation through the main-agent tool.
+- The current blocker appears to be in the tool-call/message lifecycle around subagent invocation, not in the earlier subagent configuration steps.
+- This is the point to resume from when work starts again.
+
+## 📅 Log Entry: March 29th, 2026 - Steps 7 and 8 Completed: Delegation Working End to End
+
+### The Step 7 Error Was Diagnosed and Fixed
+
+**What happened:**
+
+- The main agent correctly selected `select_subagent` and reached the tool node, but execution failed there.
+- The failing behavior came from passing the parent agent's message history into the delegated subagent call and then appending a new `HumanMessage` to that inherited history.
+- This created an invalid message sequence because the parent history already contained an `AIMessage` with unresolved `tool_calls`.
+
+**How it was fixed:**
+
+- The delegated subagent call was changed to use isolated context instead of reusing the full parent message history.
+- The delegated state now sends only a fresh task-specific `HumanMessage` to the subagent.
+- This preserved the intended isolated-subagent design and removed the invalid tool-call/message ordering.
+
+**Why this fix matters:**
+
+- It clarified that delegated subagents should not automatically inherit the parent conversation history.
+- If future subagents need parent context, that context should be passed intentionally rather than by forwarding the entire message list.
+
+### Step 7 Completed
+
+**What was completed:**
+
+- The main-agent tool `select_subagent` now works.
+- The main agent can:
+  - choose a subagent by name,
+  - pass task-specific input,
+  - invoke the compiled subagent,
+  - return the subagent's result back into the main-agent flow.
+
+**Concrete evidence:**
+
+- The main agent successfully delegated math questions to `math_agent`.
+- The main agent successfully delegated research questions to `search_agent`.
+- The main agent also responded normally when delegation was not needed.
+
+### Step 8 Completed
+
+**What was completed:**
+
+- The shared `my_create_agent(...)` utility is now used to create the main agent as well as the subagents.
+- This completed the short-term architecture goal of using one reusable builder across the whole mini project.
+
+### Current Position
+
+The first short-term implementation cycle is now complete.
+
+The mini project successfully demonstrated:
+
+- a reusable ReAct-style graph builder,
+- configurable subagent definitions,
+- compiled subagents,
+- delegation context for choosing among subagents,
+- a main-agent tool that delegates correctly,
+- a main agent that can either delegate or answer directly.
+
+### Next Step
+
+The next implementation move should be to create a new `SHORT_TERM_PLAN2.md` for the next phase of the project.

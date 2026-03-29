@@ -1,0 +1,6 @@
+type=<class 'langchain_core.messages.human.HumanMessage'>
+HumanMessage(content=[{'type': 'text', 'text': 'Hi, what is 3+4'}], additional_kwargs={}, response_metadata={}, id='8de50222-4c1f-4655-ac20-397fee32f79a')type=<class 'langchain_core.messages.ai.AIMessage'>
+
+AIMessage(content='', additional_kwargs={}, response_metadata={'finish_reason': 'tool_calls', 'model_name': 'gpt-4o-2024-08-06', 'system_fingerprint': 'fp_d87ad9333a', 'service_tier': 'default', 'model_provider': 'openai'}, id='lc_run--94339525-2b84-4df0-b263-67195e1df2b0', tool_calls=[{'name': 'select_subagent', 'args': {'description': 'Calculate the sum of 3 and 4.', 'agent_name': 'math_agent'}, 'id': 'call_FROkRMI2I71VQUDrtSPQiIsD', 'type': 'tool_call'}], usage_metadata={'input_tokens': 108, 'output_tokens': 29, 'total_tokens': 137, 'input_token_details': {'audio': 0, 'cache_read': 0}, 'output_token_details': {'audio': 0, 'reasoning': 0}})type=<class 'langchain_core.messages.human.HumanMessage'>
+
+HumanMessage(content='Calculate the sum of 3 and 4.', additional_kwargs={}, response_metadata={})

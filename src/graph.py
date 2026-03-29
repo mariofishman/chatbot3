@@ -1,7 +1,11 @@
+from pprint import pprint, pformat
+
 from dotenv import load_dotenv
-from langchain.tools import BaseTool
+from langchain.tools import BaseTool, tool
+from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
+from langgraph.prebuilt import ToolRuntime
 from pydantic import BaseModel, Field
 from typing import Annotated
 
@@ -47,19 +51,38 @@ TASK_DESCRIPTION_PREFIX = """Delegate a task to a specialized sub-agent with iso
 {other_agents}
 """
 
-TASK_DESCRIPTION = TASK_DESCRIPTION_PREFIX.format(other_agents_string)
+TASK_DESCRIPTION = TASK_DESCRIPTION_PREFIX.format(other_agents = other_agents_string)
 
 """
 I need to create the tool I will pass to the main agent so it will call the correct subagent.
 This tool, called task, is going to:
 1. Receive as params: 
-    agents: list of subagents it can call. This subagents are going to be compiled already
-    description as a `@tool` param: the description of how it has to chose over the subagents it has which includes all the descriptions of each agent.
-
+    TASK_DESCRIPTION as a `@tool` param: the description of how it has to chose over the subagents it has which includes all the descriptions of each agent.
+    description: LLM generated instruction to the downstream subagent
+    agent_name: name of the agent it has chosen (it will pick this by looking at the TASK_DESCRIPTION)
+    state: Annotated[MessagesState, InjectedState] -> could try using ToolRuntime.state
+    tool_call_id: Annotated[str, InjectedToolCallId] -> could try using ToolRuntime.tool_call_id
 """
 
+@tool(description=TASK_DESCRIPTION)
+def select_subagent(description, agent_name, runtime:ToolRuntime):
+    # add explanation of what this does.
+    subagent = agents[agent_name]
+    state = runtime.state
+    state["messages"] = [HumanMessage(description)]
 
-graph = my_create_agent(model=llm, tools=tools) 
+    ######## debugging
+    # with open("debug_messages.txt", "w") as f:
+    #     for m in state["messages"]:
+    #         f.write(f"type={type(m)}\n")
+    #         f.write(pformat(m))
+    ########
+
+    result = subagent.invoke(state)
+    return result["messages"][-1].content
+
+
+graph = my_create_agent(model=llm, tools=[select_subagent]) 
 
 
 
