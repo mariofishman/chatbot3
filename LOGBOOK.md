@@ -373,3 +373,132 @@ The mini project successfully demonstrated:
 ### Next Step
 
 The next implementation move should be to create a new `SHORT_TERM_PLAN2.md` for the next phase of the project.
+
+## 📅 Log Entry: April 5th, 2026 - Notebook Prototype Consolidation and Memory Graph Direction
+
+### Work Continued Outside the Repo Before Returning Here
+
+**What was clarified:**
+
+- The memory-learning architecture was advanced mainly in a Colab notebook before work resumed here in the repository.
+- The notebook became the main place where the profile-extraction and profile-update workflow was explored and tested.
+- Only recently, after feeling more comfortable with the direction, the work was brought back into this repo through `src/SHORT_TERM_PLAN2.md` and `src/graphv2.py`.
+
+**Concrete outcome:**
+
+- The repository now reflects a later-stage architecture discussion than the earlier toy subagent work in `src/graph.py`.
+
+### Notebook Prototype Was Frozen Into the Repo
+
+**What was completed:**
+
+- The notebook `learning_memoryv2.ipynb` was converted into `src/graphv2.py`.
+- This file was intentionally kept as a frozen baseline of the notebook prototype rather than refactored immediately.
+- `src/SHORT_TERM_PLAN2.md` was also reformatted so the numbered steps are easier to read and maintain.
+
+**Rationale:**
+
+- Freezing the notebook work into a Python file creates a stable checkpoint before major architectural changes begin.
+- This preserves the prototype while making the next steps easier to discuss inside the codebase.
+
+### Trustcall Was Confirmed as the Main Architectural Inspiration
+
+**What was established:**
+
+- `src/SHORT_TERM_PLAN2.md` is explicitly inspired by the Trustcall library, especially `trustcall/_base.py`.
+- The main ideas taken from Trustcall are:
+  - separation between initial extraction and updates
+  - patch-style model proposals instead of full rewrites
+  - deterministic patch application
+  - validation after updates
+  - explicit retry or repair behavior
+
+**Important clarification reached:**
+
+- The goal is not to copy Trustcall literally.
+- The goal is to keep the same separation of concerns while building a simpler and more explicit system.
+
+### Architecture Was Reconsidered and Re-decided
+
+**What was discussed:**
+
+- Two possible directions were compared:
+  - a ReAct-style main agent using `select_subagent`
+  - an explicit planner node followed by deterministic routing
+
+**What was decided:**
+
+- The project should now follow an explicit planner-plus-router architecture.
+- A planner node should read the conversation and return a structured planning result.
+- Graph routing should then deterministically send execution to:
+  - `extract`
+  - `update`
+  - or both in parallel
+
+**Rationale:**
+
+- This is closer to the Trustcall-style separation between model decision and deterministic execution.
+- It creates a clearer decision boundary that is easier to inspect, debug, and log.
+
+### Extract and Update Responsibilities Were Clarified
+
+**What was established:**
+
+- `extract` should be treated as a creation workflow.
+- `extract` must support creating one or more `UserProfile` objects from a single message.
+- `update` should remain a deterministic mini-graph, not a free-form ReAct workflow.
+- The intended update flow remains:
+  - `extract_updates`
+  - `apply_patch`
+  - `validate`
+  - `patch` if needed
+
+**Important clarification reached:**
+
+- The reusable `my_create_agent(...)` helper is not the right abstraction for either `extract` or `update`.
+- It remains useful for message-in, tool-calling, message-out ReAct behavior, but the memory workflows need different construction.
+
+### PlannerOutput and the Plan Were Refined
+
+**What was completed:**
+
+- A `PlannerOutput` schema was introduced in `src/graphv2.py`.
+- The planning structure now reflects:
+  - which existing ids should be updated
+  - whether new objects should be created
+  - how many new objects should be created
+  - a short reasoning summary for traceability and prompt debugging
+
+**What was clarified:**
+
+- The reasoning summary should stay short and factual rather than exposing chain-of-thought.
+- `src/SHORT_TERM_PLAN2.md` was updated so the planner and extract steps better reflect multi-create behavior.
+
+### The Step-2 Diagram Was Reviewed
+
+**What was established:**
+
+- A diagrams.net workflow drawing was created for the new architecture.
+- The drawing correctly captured the high-level separation between create and update paths.
+
+**Issue found:**
+
+- The diagram still reflected a ReAct `select_subagent` main agent and incorrectly showed the update branch using `llm.with_structured_output(UserProfile)`.
+
+**Clarification reached:**
+
+- The drawing should be updated to show:
+  - planner node
+  - router
+  - `extract` as a multi-create path
+  - `update` beginning with `llm.with_structured_output(PatchProposalList)` and then continuing through deterministic nodes
+
+### Current Stage
+
+The project has now moved beyond the earlier toy subagent experiments and into a more serious memory-graph design phase.
+
+The notebook prototype has been preserved, Trustcall has been confirmed as the main reference, and the current direction is now an explicit planner-plus-router architecture with deterministic update handling.
+
+### Next Step
+
+The next implementation move is to define the planner node cleanly on top of this newly clarified architecture.
