@@ -1,4 +1,4 @@
-# Project Logbook - Professional Profile Chatbot
+# Project Logbook 1 - Professional Profile Chatbot. Toy example with ReAct agents.
 
 [Project README](README.md)
 [Project Guidelines](GUIDELINES.md)
@@ -374,6 +374,8 @@ The mini project successfully demonstrated:
 
 The next implementation move should be to create a new `SHORT_TERM_PLAN2.md` for the next phase of the project.
 
+# Project Logbook Part 2 - TrustCall inspiration for memory manager. Bringing a prototype from colab
+
 ## 📅 Log Entry: April 5th, 2026 - Notebook Prototype Consolidation and Memory Graph Direction
 
 ### Work Continued Outside the Repo Before Returning Here
@@ -502,3 +504,26 @@ The notebook prototype has been preserved, Trustcall has been confirmed as the m
 ### Next Step
 
 The next implementation move is to define the planner node cleanly on top of this newly clarified architecture.
+
+## 📅 Log Entry: April 6th, 2026 - Workflow Diagram Finalized
+
+### Workflow Clarification Completed
+
+**What was completed:**
+
+- The workflow discussed on April 5th was refined and finalized as a diagram.
+- The final version now reflects the current architecture clearly:
+  - planner node with `PlannerOutput`
+  - deterministic router
+  - `extract` branch for one or more new profiles
+  - `update` branch for patch-based updates and validation
+- The workflow was saved as `memory-agent.pdf`.
+
+**Important clarification reached:**
+
+- `extract` is now treated as a multi-profile extraction workflow rather than a single-profile extractor.
+- The planner's `new_person_count` is now part of the extract consistency check, with retry logic when counts do not match.
+
+### Current Position
+
+The workflow is now defined clearly enough to move into implementing the planner node in `src/graphv2.py`.
