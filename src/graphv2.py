@@ -56,6 +56,9 @@ class UserProfile(BaseModel):
     location: Optional[str] = Field(default=None, description="Where the user is based")
     interests: list[str] = Field(default_factory=list, description="Important interests or topics the user cares about")
 
+class UserProfilelList(BaseModel):
+    items: list[UserProfile] = Field(default_factory=list)
+
 class PatchOp(BaseModel):
     op: Literal["add", "remove", "replace"]
     path: str
@@ -70,7 +73,6 @@ class PatchProposalList(BaseModel):
 
 class PlannerOutput(BaseModel):
     target_ids_to_update: list[str]
-    create_new: bool
     reasoning_summary: str
     new_person_count: int
 
@@ -81,6 +83,7 @@ class ExtractionState(BaseModel):
   errors: dict[str, list[str]] = Field(default_factory=dict)
   attempts: int = 0
   patches: list[PatchProposal] = Field(default_factory=list)
+  plan: PlannerOutput | None = None
 
 
 def route(state: ExtractionState)-> Literal["extract", "extract_updates"]:
@@ -131,8 +134,10 @@ changed into ExtractionState"""
   def format_string_from_user_profile(user : UserProfile) -> str:
     return "\n".join([f"{k} : {v}" for k, v in user.model_dump().items()])
 
-  formatted_class = "\n".join([f"{k}: {v.description}, type of this field: {annotation_to_text(v.annotation)}"
-                                      for k, v in UserProfile.model_fields.items()])
+  # formatted_class = "\n".join([f"{k}: {v.description}, type of this field: {annotation_to_text(v.annotation)}"
+  #                                     for k, v in UserProfile.model_fields.items()])
+  
+  formatted_class = format_string_from_schema(UserProfile)
 
   formatted_existing = "\n".join([f"Obj_id = {k}:\n{format_string_from_user_profile(v)}\n"
                                                       + "-" * 60
