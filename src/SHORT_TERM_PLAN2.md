@@ -21,6 +21,8 @@ Make one node whose only job is to read messages and return that decision schema
 
 List only the fields that parallel branches may write to.
 
+Include how `existing` should be merged when validated candidate updates are committed.
+
 6. Refactor extract into a creation subagent.
 
 Its only job: extract one or more new UserProfile objects and write them into `state.candidate`.
@@ -47,13 +49,17 @@ Its only job: validate updated candidates and write errors to state.
 
 12. Keep `validate_route` after `validate`.
 
-Its only job: decide between retry/patch or end.
+Its only job: decide between retry/patch or commit.
 
 13. Refactor `patch`.
 
 Its only job: repair invalid candidates using the validation errors.
 
-14. Add the parallel branch wiring.
+14. Add a final `commit` node.
+
+Its only job: merge validated `state.candidate` updates into `state.existing`.
+
+15. Add the parallel branch wiring.
 
 Allow the planner to trigger both:
 
@@ -62,36 +68,36 @@ Allow the planner to trigger both:
 
 from the same human message.
 
-15. Test only the create path.
+16. Test only the create path.
 
 Use a message that describes a completely new person.
 
-16. Test only the update path.
+17. Test only the update path.
 
 Use a message that clearly updates one existing person.
 
-17. Test the mixed path.
+18. Test the mixed path.
 
 Use one message that both updates one person and introduces another.
 
-18. Test planner and extract count mismatch.
+19. Test planner and extract count mismatch.
 
 Use a case where planner and extract disagree on the number of new profiles and verify the repair path.
 
-19. Verify reducers.
+20. Verify reducers.
 
-Confirm that parallel writes merge correctly into `state.candidate`.
+Confirm that parallel writes merge correctly into `state.candidate` and that commit merges validated updates correctly into `state.existing`.
 
-20. Clean prompt responsibilities.
+21. Clean prompt responsibilities.
 
 Planner prompt decides actions only.
 Create prompt creates only.
 Update prompt patches only.
 
-21. Remove dead logic from the old architecture.
+22. Remove dead logic from the old architecture.
 
 Delete anything no longer used after the refactor.
 
-22. Only then improve memory semantics.
+23. Only then improve memory semantics.
 
 Decide later whether `candidate` remains canonical memory or whether you introduce a separate committed store.

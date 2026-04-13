@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net">
+  <diagram id="IWuojImT4TLDh2pn7Yc1" name="Page-3">
+    <mxGraphModel dx="3353" dy="2200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="4681" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-1" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" value="START" vertex="1">
+          <mxGeometry height="60" width="120" x="50" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Node 1: Memory-worthiness gate&lt;div&gt;Question: does this message contain profile-worthy information?&lt;/div&gt;&lt;div&gt;Output: yes / no&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="260" x="220" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-3" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" value="END / ignore message" vertex="1">
+          <mxGeometry height="80" width="180" x="560" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="VHRDsIqKwC2gU1h5OLSs-2" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="VHRDsIqKwC2gU1h5OLSs-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Node 2: Subject and fact detection&lt;div&gt;Identify all people mentioned in the message&lt;/div&gt;&lt;div&gt;Also detect profile-worthy facts with weak or missing subject anchoring&lt;/div&gt;&lt;div&gt;Output: subject mentions + orphan facts&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="320" x="220" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="6uezqrQhraOqppnke-U3-3" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="LXgvgiF0CeQH1B1Two0x-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Node 3: Candidate retrieval / filtering&lt;div&gt;Use detected subjects to narrow relevant profiles from state.existing&lt;/div&gt;&lt;div&gt;Possible methods: exact name matching, heuristics, embeddings, search&lt;/div&gt;&lt;div&gt;Output: candidate existing profiles per subject&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="320" x="220" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;overflow=hidden;" value="Node 4: Identity resolution&lt;div&gt;&lt;div&gt;Input: detected subject + candidate profiles&lt;/div&gt;&lt;div&gt;Output: unambiguous_existing / ambiguous_match / definitely_new / needs_user_clarification&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="160" width="320" x="220" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Node 5: Action proposal&lt;div&gt;For each resolved subject decide:&lt;/div&gt;&lt;div&gt;- create_new&lt;/div&gt;&lt;div&gt;- update_existing&lt;/div&gt;&lt;div&gt;- ignore / unresolved&lt;/div&gt;&lt;div&gt;Output: action proposals&lt;/div&gt;" vertex="1">
+          <mxGeometry height="140" width="320" x="220" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-10" parent="1" style="whiteSpace=wrap;html=1;rounded=0;" value="&lt;div&gt;Save to task queue&lt;/div&gt;&lt;div&gt;- create branch&lt;/div&gt;&lt;div&gt;- update branch&lt;/div&gt;&lt;div&gt;- both in parallel&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="160" x="610" y="1008" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-16" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="9X_zHYVDyfRs_1JNDdcn-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-17" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="9X_zHYVDyfRs_1JNDdcn-3" value="no">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-18" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="9X_zHYVDyfRs_1JNDdcn-4" value="yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-20" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="9X_zHYVDyfRs_1JNDdcn-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-23" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="HBjxxj-PaKMHTgiMZ76c-23">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="380" y="972" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-24" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="9X_zHYVDyfRs_1JNDdcn-10" value="valid proposals">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="470" y="1062" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-25" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;exitX=-0.005;exitY=0.392;exitDx=0;exitDy=0;exitPerimeter=0;" target="9X_zHYVDyfRs_1JNDdcn-8" value="repair / revise">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="1209" />
+              <mxPoint x="200" y="895" />
+            </Array>
+            <mxPoint x="290" y="1062" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-26" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="HBjxxj-PaKMHTgiMZ76c-3" value="create">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="1040" as="sourcePoint" />
+            <mxPoint x="930" y="950" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-27" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="HBjxxj-PaKMHTgiMZ76c-4" value="update">
+          <mxGeometry relative="1" x="-0.003" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="1030" y="1040" as="sourcePoint" />
+            <mxPoint x="1220" y="1300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-23" edge="1" parent="1" source="VHRDsIqKwC2gU1h5OLSs-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="nCivmhxMM9X6c22BQ8Ie-21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-25" connectable="0" parent="nCivmhxMM9X6c22BQ8Ie-23" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Yes" vertex="1">
+          <mxGeometry relative="1" x="-0.1148" y="-2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-24" edge="1" parent="1" source="VHRDsIqKwC2gU1h5OLSs-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="d1qDQasMmmVKYZnUmQSg-10">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="950" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-26" connectable="0" parent="nCivmhxMM9X6c22BQ8Ie-24" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="No" vertex="1">
+          <mxGeometry relative="1" x="-0.6291" y="2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="VHRDsIqKwC2gU1h5OLSs-1" parent="1" style="rhombus;whiteSpace=wrap;html=1;aspect=fixed;" value="Unidentified subject? &quot;I meet someone with interest in Jazz&quot;" vertex="1">
+          <mxGeometry height="110" width="110" x="710" y="215" as="geometry" />
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-11" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1390" y="565.0000000000002" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-21" parent="1" style="whiteSpace=wrap;html=1;" value="Human-in-loop: disambiguate. Ask who." vertex="1">
+          <mxGeometry height="50" width="120" x="605" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="nCivmhxMM9X6c22BQ8Ie-22" edge="1" parent="1" source="nCivmhxMM9X6c22BQ8Ie-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.91;entryY=0.016;entryDx=0;entryDy=0;entryPerimeter=0;" target="9X_zHYVDyfRs_1JNDdcn-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="6uezqrQhraOqppnke-U3-5" edge="1" parent="1" source="LXgvgiF0CeQH1B1Two0x-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" target="9X_zHYVDyfRs_1JNDdcn-8">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="550" y="514.7037037037036" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="6uezqrQhraOqppnke-U3-6" connectable="0" parent="6uezqrQhraOqppnke-U3-5" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="No" vertex="1">
+          <mxGeometry relative="1" x="-0.1564" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="LXgvgiF0CeQH1B1Two0x-1" parent="1" style="rhombus;whiteSpace=wrap;html=1;aspect=fixed;" value="Ambiguity about target subjects?" vertex="1">
+          <mxGeometry height="110" width="110" x="55" y="605" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-31" edge="1" parent="1" source="LXgvgiF0CeQH1B1Two0x-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="9X_zHYVDyfRs_1JNDdcn-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="LXgvgiF0CeQH1B1Two0x-2" parent="1" style="whiteSpace=wrap;html=1;" value="Human-in-loop: disambiguate." vertex="1">
+          <mxGeometry height="30" width="120" x="50" y="445" as="geometry" />
+        </mxCell>
+        <mxCell id="6uezqrQhraOqppnke-U3-1" edge="1" parent="1" source="LXgvgiF0CeQH1B1Two0x-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="LXgvgiF0CeQH1B1Two0x-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="6uezqrQhraOqppnke-U3-4" connectable="0" parent="6uezqrQhraOqppnke-U3-1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Yes" vertex="1">
+          <mxGeometry relative="1" x="-0.5052" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-2" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="d1qDQasMmmVKYZnUmQSg-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-3" connectable="0" parent="d1qDQasMmmVKYZnUmQSg-2" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.4364" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-4" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="d1qDQasMmmVKYZnUmQSg-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-5" connectable="0" parent="d1qDQasMmmVKYZnUmQSg-4" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="2" vertex="1">
+          <mxGeometry relative="1" x="0.4032" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-6" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.932;exitY=0.997;exitDx=0;exitDy=0;exitPerimeter=0;" target="d1qDQasMmmVKYZnUmQSg-13">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1239" y="310" />
+              <mxPoint x="1530" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-7" connectable="0" parent="d1qDQasMmmVKYZnUmQSg-6" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="3" vertex="1">
+          <mxGeometry relative="1" x="0.3507" y="2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-32" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="d1qDQasMmmVKYZnUmQSg-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-33" connectable="0" parent="d1qDQasMmmVKYZnUmQSg-32" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="5" vertex="1">
+          <mxGeometry relative="1" x="-0.1631" y="-4" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;" value="Target-scope classification for non-simple facts&lt;div&gt;Classify each fact as:&lt;/div&gt;&lt;div&gt;1. one identified subject&lt;/div&gt;&lt;div&gt;2. multiple explicitly identified subjects&lt;/div&gt;&lt;div&gt;3. subset of subjects selected by a condition&lt;/div&gt;&lt;div&gt;4. all subjects in scope&lt;/div&gt;&lt;div&gt;5. new entity linked to a known subject&lt;/div&gt;&lt;div&gt;6. non-subject entity fact&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="170" width="330" x="931.76" y="111" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-11" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Case 1&lt;div&gt;Fact about one identified subject&lt;/div&gt;&lt;div&gt;Route to normal subject/action pipeline&lt;/div&gt;&lt;div&gt;&lt;div&gt;Example: “Mario is interested in tae kwon do.”&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="71" width="250" x="741.76" y="349" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-12" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Case 2&lt;div&gt;Fact about multiple explicitly identified subjects&lt;/div&gt;&lt;div&gt;Create multi-subject action proposal&lt;/div&gt;&lt;div&gt;&lt;div&gt;Example: “Mario and Philip are both interested in commodities.”&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="250" x="741.76" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-13" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Case 3&lt;div&gt;Fact about a subset of subjects selected by a condition&lt;/div&gt;&lt;div&gt;Generate scoped bulk update proposal&lt;/div&gt;&lt;div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Example: “All Krowdy employees were laid off.”&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="250" x="1410" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-14" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Case 4&lt;div&gt;Fact about all subjects in scope&lt;/div&gt;&lt;div&gt;Generate universal bulk update proposal&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Example: “Everyone I mentioned is based in Peru.”&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="260" x="1120" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-15" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Case 5&lt;div&gt;New entity linked to a known subject&lt;/div&gt;&lt;div&gt;Example: Mario has 4 children&lt;/div&gt;&lt;div&gt;&lt;div&gt;Here children suggests a new entity type not yet modeled.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="250" x="1361.76" y="134" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-16" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;" value="Case 6&lt;div&gt;Fact about a non-subject entity and entity is identified.&lt;/div&gt;&lt;div&gt;Example: Krowdy went bankrupt&lt;/div&gt;&lt;div&gt;&lt;div&gt;This is really about Company, not directly about a UserProfile.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="250" x="1361.76" y="11" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-35" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="641" y="605" />
+              <mxPoint x="641" y="460" />
+            </Array>
+            <mxPoint x="751" y="605" as="sourcePoint" />
+            <mxPoint x="541" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-18" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;" value="Logic to identify which subjects are being referred to in these cases and then go directly to node 3." vertex="1">
+          <mxGeometry height="80" width="250" x="740" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-19" parent="1" style="rounded=0;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;textShadow=1;whiteSpace=wrap;html=1;container=0;autosize=0;overflow=hidden;" value="INCOMPLETE ARCHITECTURE HERE:&lt;br&gt;MEMORY REFRESHER: case 5 opens a much bigger design question than it first appeared. A fact like “Mario has 4 children” looks simple, but it forces you to decide whether the new thing should become a first-class entity, a plain field, or a deferred unresolved concept. At that point, you will need to think about linked-entity detection, retrieval, disambiguation, duplication avoidance, and relationship modeling. You will also need to decide when a linked entity should follow the same retrieve-resolve-clarify pipeline as subjects, and when it is safe to create it directly. In other words, this branch is really the doorway from a single-entity `UserProfile` memory system into a more relational memory model, so when you return here, treat it as a schema and identity problem, not just as a small routing detail.&lt;br&gt;QUESTIONS TO ANSWER WITH A FULL WORKFLOW HERE:&lt;br&gt;Yes, it’s too simple for the full architecture.&lt;br&gt;&lt;br&gt;Future questions to capture:&lt;br&gt;- When should a new mention become a first-class entity vs just a field on an existing object?&lt;br&gt;- How do we detect that the “new entity” may already exist under another name?&lt;br&gt;- When do we need entity disambiguation before creating a linked entity?&lt;br&gt;- What identity signals are enough to create a new linked entity safely?&lt;br&gt;- Should linked entities use the same retrieve-resolve-disambiguate pipeline as subjects?&lt;br&gt;- How should relationships be represented between subject and linked entity?&lt;br&gt;- How do we handle partial linked-entity information?&lt;br&gt;- How do we avoid duplicate linked entities over time?&lt;br&gt;- When should we interrupt the user for clarification vs defer the fact?&lt;br&gt;- How should schema evolution happen when linked entities appear repeatedly?&lt;br&gt;- How should non-person entities and linked entities differ architecturally?&lt;br&gt;- When do derived effects on subjects happen after updating a non-subject entity?" vertex="1">
+          <mxGeometry height="110" width="260" x="1680" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-21" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="d1qDQasMmmVKYZnUmQSg-14" value="4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1170" y="336" />
+              <mxPoint x="1255" y="336" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-22" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="d1qDQasMmmVKYZnUmQSg-16" value="6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1021.76" y="61" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-23" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="9X_zHYVDyfRs_1JNDdcn-5">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="611.76" y="459.0000000000002" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-24" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="9X_zHYVDyfRs_1JNDdcn-5">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="611.76" y="459.0000000000002" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-25" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="d1qDQasMmmVKYZnUmQSg-18">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1535" y="620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-26" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="d1qDQasMmmVKYZnUmQSg-18">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1255" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-27" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="d1qDQasMmmVKYZnUmQSg-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-28" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="d1qDQasMmmVKYZnUmQSg-29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-29" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Resolve or update the non-subject entity, then infer whether the fact affects a subset of subjects." vertex="1">
+          <mxGeometry height="100" width="260" x="1701.76" y="11" as="geometry" />
+        </mxCell>
+        <mxCell id="d1qDQasMmmVKYZnUmQSg-30" edge="1" parent="1" source="d1qDQasMmmVKYZnUmQSg-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1.003;entryY=0.127;entryDx=0;entryDy=0;entryPerimeter=0;" target="d1qDQasMmmVKYZnUmQSg-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-2" parent="1" style="whiteSpace=wrap;html=1;verticalAlign=top;fontSize=15;" value="Workers" vertex="1">
+          <mxGeometry height="800" width="570" x="800" y="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-3" parent="1" style="rounded=0;html=1;align=left;whiteSpace=wrap;verticalAlign=top;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;&lt;b&gt;subagent1&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;b&gt;name:&amp;nbsp;&lt;/b&gt;`extract`&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;description:&amp;nbsp;&lt;/b&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Use this subagent when the message contains information about one or more new people that should be extracted into one or more new UserProfile object(s), not applied as an update to an existing one.&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Model&lt;/b&gt;: llm.with_structured_output(UserProfileList)&lt;/div&gt;&lt;div&gt;&lt;b&gt;Prompt: @&lt;/b&gt;graphv2.py line 94&lt;/div&gt;&lt;div&gt;&lt;b&gt;Tools&lt;/b&gt;: None&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="570" width="260" x="810" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-4" parent="1" style="rounded=0;html=1;align=left;whiteSpace=wrap;verticalAlign=top;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;&lt;b&gt;subagent2&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;b&gt;name:&amp;nbsp;&lt;/b&gt;`update`&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;description:&amp;nbsp;&lt;/b&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Use this subagent when the message updates, corrects, or deletes information about an existing UserProfile and the changes should be applied as patch proposals rather than creating a new profile&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;.&lt;/span&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;br&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Model&lt;/b&gt;: llm.with_structured_output(PatchProposalList)&lt;/div&gt;&lt;div&gt;&lt;b&gt;Prompt: @&lt;/b&gt;graphv2.py line 94&lt;/div&gt;&lt;div&gt;&lt;b&gt;Tools&lt;/b&gt;: None&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="760" width="280" x="1080" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-5" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HBjxxj-PaKMHTgiMZ76c-9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;extract_updates&lt;/font&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;input: state.messages; state.existing; state.plan.target_ids_to_update,&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;output: state.patches&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="1090" y="1340" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-7" edge="1" parent="1" source="9X_zHYVDyfRs_1JNDdcn-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.156;exitY=1.017;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitPerimeter=0;" target="HBjxxj-PaKMHTgiMZ76c-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-8" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.161;entryY=-0.009;entryDx=0;entryDy=0;entryPerimeter=0;" target="HBjxxj-PaKMHTgiMZ76c-13">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1215" y="1540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;validate&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;&lt;div style=&quot;font-size: 12px; text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;input: state.candidate&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;font-size: 12px; text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;output: state.errors&lt;/font&gt;&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="1090" y="1510" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-10" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HBjxxj-PaKMHTgiMZ76c-11" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1150" y="1410" as="sourcePoint" />
+            <mxPoint x="1150" y="1500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-11" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;apply_patch&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;&lt;div style=&quot;font-size: 12px; text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;input: state.patches; state.existing&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;font-size: 12px; text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;output: state.candidate&lt;/font&gt;&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="1090" y="1420" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-12" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.871;exitY=0.035;exitDx=0;exitDy=0;entryX=0.912;entryY=1.02;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;" target="HBjxxj-PaKMHTgiMZ76c-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-13" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;Patch&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;&lt;div style=&quot;font-size: 12px; text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;input: state.errors&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;font-size: 12px; text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;output: state.candidate&lt;/font&gt;&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="1150" y="1630" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-14" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="END" vertex="1">
+          <mxGeometry height="20" width="80" x="1095" y="1880" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-15" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HBjxxj-PaKMHTgiMZ76c-17" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-16" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;extract&lt;/font&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;input: state.messages; state.plan.new_person_count&amp;nbsp;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;output: state.candidate&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;compare `state.plan.new_person_count` with length of response. Retry with a new prompt if mismatch&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="190" x="842.5" y="1340" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-17" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="END" vertex="1">
+          <mxGeometry height="20" width="80" x="897.5" y="1650" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-18" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;No state.errors&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="70" x="1095" y="1570" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-20" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="HBjxxj-PaKMHTgiMZ76c-19" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1738" y="2590" as="sourcePoint" />
+            <mxPoint x="1738" y="2770" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-19" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;" value="Final commit node&lt;div&gt;Merge validated state.candidate into state.existing&lt;/div&gt;&lt;div&gt;Deterministic merge / reducer logic lives here&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="190" x="842.5" y="1510" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-21" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.145;entryY=0.033;entryDx=0;entryDy=0;entryPerimeter=0;" target="9X_zHYVDyfRs_1JNDdcn-13" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1138" y="1570" as="sourcePoint" />
+            <mxPoint x="1135" y="1880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9X_zHYVDyfRs_1JNDdcn-13" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;" value="Final commit node&lt;div&gt;Merge validated state.candidate into state.existing&lt;/div&gt;&lt;div&gt;Deterministic merge / reducer logic lives here&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="240" x="1090" y="1720" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-22" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;overflow=hidden;" value="&lt;div&gt;When you return to this part of the architecture, remember that a robust concurrent design should not keep one giant graph execution open while many subject-level branches try to finish and rejoin. The safer design is to let one orchestration graph analyze the user message, identify subjects and facts, resolve what can be resolved, and emit durable item-level tasks such as `update existing subject`, `create new subject`, or `ask user to clarify unresolved subject`. Each of those tasks should then be processed independently so that one slow, ambiguous, or broken item never blocks the rest. In other words, concurrency and fault isolation come from turning one message into many durable work items, not from keeping many live branches inside one run.&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;The implementation options are mainly about where the task queue lives and how workers are started. The simplest option is an application-managed task table or queue in your own storage layer, where the orchestrator writes tasks and a separate worker process polls and runs the worker graph on each task. A more LangGraph-native option is to keep the task definitions in persistent state and have an external loop or service invoke the worker graph once per task, passing the task payload as input. In both cases, the worker graph does not literally “invoke itself” from inside the same run; instead, some outer orchestrator, scheduler, queue consumer, or application service starts a new graph run for each task. The key idea is that self-reinvocation is replaced by durable task emission plus external task consumption.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="360" x="605" y="878" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-23" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;validate&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;&lt;div style=&quot;text-align: left;&quot;&gt;Proposal validator&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;Input: subject/action proposals&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Output: valid proposals or proposal errors&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;- did we miss a subject?&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;&quot;&gt;&lt;div style=&quot;&quot;&gt;- is each identity/action decision justified?&lt;/div&gt;&lt;div style=&quot;&quot;&gt;- should any subject move from ignore to create/update?&lt;/div&gt;&lt;div style=&quot;&quot;&gt;Output: validated proposals or repair needed&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="240" x="260" y="993" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-24" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;Patch&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;&quot;&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Proposal repair&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Input: proposal errors&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;Output: revised subject/action proposals&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;patch/output-level validator: “is the candidate object valid after updates?”&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;font style=&quot;&quot;&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="240" x="260" y="1170" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-25" edge="1" parent="1" source="HBjxxj-PaKMHTgiMZ76c-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="HBjxxj-PaKMHTgiMZ76c-24">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="405" y="1200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-27" parent="1" style="whiteSpace=wrap;html=1;rounded=0;" value="&lt;div&gt;Task Queue.&lt;/div&gt;&lt;div&gt;Listening for tasks and firing a worker for each one.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="160" x="1005" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="HBjxxj-PaKMHTgiMZ76c-28" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;overflow=hidden;" value="&lt;div&gt;&lt;span style=&quot;text-align: left;&quot;&gt;Node 4 should first retrieve a small candidate set from `existing` using exact-name matching, alias matching, and embedding similarity over identity fields such as name, company, role, and location, and it should always include a `none_of_the_above` option. Then the model should compare the detected subject mention against each candidate using only explicit evidence from the message and classify the result into one of four outcomes: `unambiguous_existing`, `ambiguous_match`, `definitely_new`, or `needs_user_clarification`. `unambiguous_existing` means one candidate is clearly supported and the others are ruled out; `ambiguous_match` means more than one candidate remains plausible; `definitely_new` means no candidate is plausible and `none_of_the_above` is best supported; `needs_user_clarification` is used whenever the model cannot justify a safe decision from the available evidence. The rhombus in the workflow should route `ambiguous_match` and `needs_user_clarification` to human-in-the-loop, while `unambiguous_existing` and `definitely_new` continue downstream.&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="360" x="440" y="640" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -527,3 +527,342 @@ The next implementation move is to define the planner node cleanly on top of thi
 ### Current Position
 
 The workflow is now defined clearly enough to move into implementing the planner node in `src/graphv2.py`.
+
+## 📅 Log Entry: April 11th, 2026 - Planner Node Testing and Architecture Pressure
+
+### Planner Node Began Producing Useful Results
+
+**What was completed:**
+
+- `planner_node` in `src/graphv2.py` was brought to a testable state.
+- The planner was successfully run in Studio using `agent_v2`.
+- A second graph entry was added to `langgraph.json` so both the older graph and `graphv2` can be loaded in Studio.
+
+**Important issue found:**
+
+- `langgraph dev` rejected the graph when `graphv2` was compiled with `InMemorySaver`.
+- It was clarified that custom checkpointers should be removed for Studio usage and only enabled for local script-style testing if needed.
+
+### State Semantics Became Clearer
+
+**What was clarified:**
+
+- `existing` should remain the trusted baseline memory.
+- `candidate` should remain provisional working state.
+- This exposed the need for a final `commit` step to merge validated `candidate` updates back into `existing`.
+- `src/SHORT_TERM_PLAN2.md` was updated accordingly so the plan now includes the `commit` node and the merge concern for `existing`.
+
+### Planner Quality Concerns Appeared
+
+**What was observed:**
+
+- The planner handled some mixed-message cases correctly, but it also missed at least one expected subject update.
+- This raised the question of whether prompt improvement alone is sufficient or whether additional validation around the planner will eventually be needed.
+
+### Current Position
+
+The planner node now works well enough to expose architectural issues that were not visible before testing.
+
+The project is still implementation-driven in `src/graphv2.py`, but the testing pressure is already revealing where the architecture needs to become more precise.
+
+## 📅 Log Entry: April 12th, 2026 - Robust North-Star Architecture Exploration
+
+### Work Shifted Back From Coding to Architecture
+
+**What happened:**
+
+- Work temporarily stepped back from direct implementation in order to rethink the memory workflow at a more robust architectural level.
+- The goal of this discussion was not to replace the current short-term plan, but to define a stronger long-term “north star” architecture that can guide future short-term plans.
+
+### The Workflow Was Expanded Beyond Planner-Only Thinking
+
+**What was clarified:**
+
+- A stronger architecture should separate:
+  - memory-worthiness detection
+  - subject detection
+  - candidate retrieval
+  - identity resolution
+  - action proposal
+  - proposal validation
+  - branch-specific extraction/update validation
+  - deterministic commit
+
+**Important conceptual improvement:**
+
+- The architecture must explicitly account for profile-worthy facts that are not simple facts about one already-resolved person.
+- This led to a new branch for target-scope classification of non-simple facts.
+
+### Non-Simple Fact Cases Were Identified
+
+**What was established:**
+
+- The following conceptual cases were distinguished:
+  - fact about one identified subject
+  - fact about multiple explicitly identified subjects
+  - fact about a subset of subjects selected by a condition
+  - fact about all subjects in scope
+  - new entity linked to a known subject
+  - fact about a non-subject entity
+  - unresolved target
+
+**Why this matters:**
+
+- This shifted the discussion from “orphan facts” to a more precise idea of target scope.
+- It also exposed where the current `UserProfile`-only memory model will eventually need to evolve into a more relational system.
+
+### Interrupts and Concurrency Were Reconsidered
+
+**What was clarified:**
+
+- If one message contains both resolved and unresolved items, the unresolved part should not conceptually freeze the whole system forever.
+- A single monolithic graph run is therefore a poor long-term unit of work for this problem.
+- A more robust long-term architecture likely requires item-level task emission and independent worker processing rather than one large synchronized execution.
+
+**Important clarification reached:**
+
+- LangGraph can support pieces of this through workers and `Send`, but a true fire-and-forget task system would still need architecture on top of LangGraph rather than coming “for free.”
+
+### Current Position
+
+The project now has two layers of architecture in mind:
+
+- the current near-term planner-router implementation path in `src/graphv2.py`
+- a more robust future architecture centered on task decomposition, identity resolution, non-simple fact scope handling, and stronger concurrency boundaries
+
+This architectural north star is not yet the implementation target, but it now exists as a clearer long-term guide.
+
+## 🧭 Special Entry: April 12th, 2026 - memory_agent.drawio.xml
+
+### Reference File
+
+The file [memory_agent.drawio.xml](/Users/mariofishman/projects/chatbot3/memory_agent.drawio.xml) in the project root should be treated as the current north-star architecture reference for the memory system.
+
+This is not the same as the short-term implementation plan. The short-term work should still follow `src/SHORT_TERM_PLAN2.md` and the current implementation work in `src/graphv2.py`, but this diagram captures the broader architectural direction that future iterations may grow into.
+
+### Why This Entry Exists
+
+This entry is meant to help recover the architectural context later without having to reconstruct the whole discussion from memory.
+
+The key point is that this diagram is intentionally more ambitious than the current implementation. It records the strongest version of the architecture the project could currently articulate, including branches and design concerns that are not yet ready to be built.
+
+### Main Top-Level Flow
+
+The main conceptual flow currently represented in `memory_agent.drawio.xml` is:
+
+- memory-worthiness gate
+- subject and fact detection
+- candidate retrieval / filtering
+- identity resolution
+- action proposal
+- proposal validator
+- proposal repair loop
+- deterministic routing into create or update work
+- validation and commit into canonical memory
+
+This top-level flow separates decision-making from downstream extraction and patching. That separation remains one of the main architectural values in the project.
+
+Another important reminder is that the north-star diagram is doing two jobs at once:
+
+- describing a conceptual control flow
+- preserving open design problems that are not yet settled
+
+So some boxes are intended as stable workflow components, while others are intentionally placeholders for future architectural work.
+
+### Memory-Worthiness Gate
+
+The first node asks whether a message contains profile-worthy information at all.
+
+This is intended as a lightweight gate, not a deep semantic planner. The purpose is simply to avoid doing expensive downstream work on messages that should not affect memory.
+
+### Subject and Fact Detection
+
+The second node identifies the people mentioned in the message and also detects profile-worthy facts that are not simple subject-scoped statements.
+
+This area of the architecture became more important over time because it became clear that not all useful memory facts are cleanly reducible to “one known person, one known field.”
+
+One subtle but important clarification is that this node should not be treated as the place where all target resolution is finished. Its purpose is detection, not final scoping. Later nodes still need to resolve identity and target scope more precisely.
+
+### Candidate Retrieval
+
+Candidate retrieval is intended to narrow the set of existing profiles relevant to a detected subject before identity resolution happens.
+
+The working assumption is that this node can use a mix of:
+
+- exact-name matching
+- alias matching
+- heuristics
+- embeddings / semantic retrieval
+
+The important design decision here is that retrieval should narrow candidates, not finalize identity by itself.
+
+### Identity Resolution
+
+Identity resolution is its own node because matching a mention to an existing profile is a different problem from extracting fields or creating updates.
+
+The working methodology for this node is:
+
+- retrieve a small candidate set from `existing`
+- include a `none_of_the_above` option
+- compare the detected subject mention against only those candidates
+- classify into one of:
+  - `unambiguous_existing`
+  - `ambiguous_match`
+  - `definitely_new`
+  - `needs_user_clarification`
+
+This node is one of the most important architectural boundaries in the whole system.
+
+### Human-in-the-Loop for Ambiguity
+
+The architecture now assumes that ambiguity should be handled explicitly and early rather than buried later in extraction or patching.
+
+The human-in-the-loop path is used when the system cannot safely resolve who a message refers to.
+
+A major conclusion from the discussion was that unresolved or ambiguous items should not conceptually force all other resolved work to wait forever. This is what pushed the architecture toward thinking in terms of independent item-level work rather than one giant perfectly synchronized graph run.
+
+Another important reminder is that human-in-the-loop was discussed at two levels:
+
+- subject disambiguation when the system cannot safely tell who is being referred to
+- future clarification for unresolved target cases that are not clean subject matches
+
+These should not be collapsed into one vague “ask the user” concept.
+
+### Target-Scope Classification for Non-Simple Facts
+
+One of the biggest design improvements was recognizing that some profile-worthy facts are not simple facts about one already-resolved person.
+
+The diagram now includes a branch for target-scope classification of these non-simple facts.
+
+The currently recognized cases are:
+
+- fact about one identified subject
+- fact about multiple explicitly identified subjects
+- fact about a subset of subjects selected by a condition
+- fact about all subjects in scope
+- new entity linked to a known subject
+- fact about a non-subject entity
+
+This branch replaced the earlier weaker notion of “orphan facts” with a more precise idea of target scope.
+
+That wording change matters. The project moved away from talking loosely about “orphan facts” because many such facts are not actually orphaned; they simply target something other than a single already-resolved person.
+
+### Case 5 and Relational Memory Pressure
+
+Case 5, such as “Mario has 4 children,” opened a much bigger architectural question than it first appeared.
+
+This branch raises issues such as:
+
+- when a mention should become a first-class entity rather than just a field
+- linked-entity detection
+- disambiguation of linked entities
+- duplication avoidance
+- relationship modeling
+- schema evolution
+
+This is one of the main gateways from a single `UserProfile` memory model toward a more relational memory model.
+
+The diagram intentionally marks this branch as incomplete because the project does not yet have a final answer here.
+
+### Case 6 and Non-Subject Entities
+
+Case 6 captures facts that are really about some other entity, for example a company, rather than directly about a person.
+
+An example discussed was “Krowdy went bankrupt.”
+
+The important insight was that such a fact should first update or resolve the non-subject entity, and only later may imply downstream effects on people associated with that entity.
+
+This means that a non-subject entity fact should not be treated as if it were already the same thing as a subset-of-subjects update, even if it may later generate one.
+
+### Action Proposal
+
+The action proposal node exists to decide what should happen for resolved subject-scoped items:
+
+- create new profile
+- update existing profile
+- ignore
+
+This is intentionally separated from identity resolution and also from downstream field extraction or patch generation.
+
+Another useful reminder is that action proposal is only meaningful after identity and target scope are clear enough. If those earlier decisions are unstable, action proposals will inherit that instability.
+
+### Proposal Validator and Proposal Repair
+
+A proposal-level validator was added conceptually to check things such as:
+
+- whether a subject was missed
+- whether the chosen identity/action is justified
+- whether some ignored item should actually become create/update work
+
+The proposal repair loop exists so the architecture does not rely only on one forward pass. This is not the same as the update-subgraph validator. It is a validator for the proposal set itself.
+
+One clarification reached in the discussion was that this area mostly needs clearer naming and drawing, not a different underlying concept.
+
+### Update Subgraph
+
+The update path in the diagram intentionally preserves the longer deterministic chain:
+
+- `extract_updates`
+- `apply_patch`
+- `validate`
+- `Patch`
+- loop back to `validate`
+- final commit
+
+This exists because update correctness is considered more sensitive and more structurally constrained than higher-level planning.
+
+The update subgraph is separate from the proposal validator. One validates proposals; the other validates actual patched candidate objects.
+
+### Commit and Canonical State
+
+The diagram assumes a commit step that merges validated `candidate` changes back into canonical `existing`.
+
+The existence of more than one commit box in some diagram revisions was not treated as a conceptual disagreement so much as a drawing clarity issue, because the architecture already assumes reducer-based merging into canonical state.
+
+The important architectural point is that commit is explicit, deterministic, and conceptually separate from validation.
+
+### Fire-and-Forget / Worker Architecture Discussion
+
+One of the most important discussions connected to this diagram was about concurrency and whether the long-term system should use independent item-level workers.
+
+The conclusion was that a truly robust concurrent design should not keep one giant graph execution open while many item-level branches attempt to finish and rejoin.
+
+Instead, the stronger long-term pattern is:
+
+- one orchestration layer analyzes the message and emits item-level tasks
+- those tasks are stored durably
+- worker runs process them independently
+- ambiguous or unresolved tasks become clarification tasks
+- slow or broken tasks do not block the rest
+
+This is a real architectural pressure point and should be kept in mind whenever the current monolithic graph starts to feel too synchronized or too fragile.
+
+This discussion should be remembered as unresolved at the execution-model level. The current near-term implementation does not yet use the full worker architecture, but the north-star design increasingly points in that direction for robustness.
+
+### What Was Criticized and Clarified
+
+The latest review of the diagram surfaced several specific criticisms that should be remembered:
+
+- The diagram still risks mixing two execution models: a single long-lived orchestrated run and a more durable task-emission / worker architecture. This is not just a drawing issue. It changes what interrupts, concurrency, and completion mean.
+- The non-simple fact branch became much stronger, but some of its labels still risk confusion. In particular, earlier wording around “orphan facts” was weaker than the newer target-scope framing, and future revisions should preserve the more precise target-scope language.
+- The handoff from non-simple fact analysis back into the person-centered flow must stay explicit. When a branch eventually feeds back into normal create/update logic, the drawing should make clear what artifact is being handed off rather than relying on visual intuition.
+- The proposal validator and the update-subgraph validator must remain conceptually separate. One validates whether the right subjects and actions were chosen; the other validates whether patched candidate objects are structurally and semantically valid. These should never collapse into one vague “validation” idea.
+- Case 5 and Case 6 are not equally mature, even if both are intentionally incomplete. Case 5 is clearly marked as a gateway into relational memory and linked-entity modeling. Case 6 is more operationally described, but still hides unresolved questions about how non-subject entity updates should later propagate to affected subjects.
+- Several remaining weaknesses are about clarity of text and diagram layout rather than fundamental conceptual disagreement, but that still matters: ambiguous labels can cause future architectural confusion even when the underlying idea is sound.
+
+One more concrete reminder: if the diagram starts to feel contradictory in the future, first check whether the contradiction comes from execution-model assumptions rather than from the memory logic itself. A number of tensions in the review came from mixing “single run with branches” and “durable task plus worker” thinking inside the same picture.
+
+### Practical Reminder for Future Work
+
+When returning to `memory_agent.drawio.xml` later, do not treat every unresolved branch as something that must be solved before continuing implementation.
+
+Instead, treat the diagram as a map of:
+
+- what the current implementation already approximates
+- what the near-term plan should progressively move toward
+- what the long-term architecture will need once the `UserProfile`-only memory model starts expanding into relational memory, richer validation, and more independent work execution
+
+The file is therefore both:
+
+- a north-star system design
+- and a reminder of where the hard unsolved questions still are
