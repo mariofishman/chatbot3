@@ -866,3 +866,56 @@ The file is therefore both:
 
 - a north-star system design
 - and a reminder of where the hard unsolved questions still are
+
+## 📋 Log Entry: April 13th, 2026 - Planner Test Baseline and State Split
+
+### Planner Testing Reached a Usable Baseline
+
+The current `planner_node` was tested locally through `src/test_planner.py` instead of only through Studio.
+
+This was important because it created a faster loop for checking whether planner outputs make sense before moving deeper into the refactor.
+
+The planner passed a small baseline set of tests covering:
+
+- create-only cases
+- update-only cases
+- mixed create/update cases
+- interest-only updates
+- no-op messages
+- multiple new people in one message
+
+An ambiguity test with two existing subjects sharing the same name was also added, but it was explicitly treated as exploratory rather than a pass/fail gate. The current planner can sometimes describe ambiguity in `reasoning_summary`, but it does not yet have an explicit ambiguity field in `PlannerOutput`, so this case should not block progress at the current stage.
+
+### State Boundary Decision Clarified
+
+One important implementation decision was clarified before moving to the next step of the short-term plan: the project should no longer keep one large shared working state for every part of the system.
+
+Instead, the architecture should move toward three different state models:
+
+- one main graph state
+- one extract subagent state
+- one update subagent state
+
+The reasoning was:
+
+- top-level `messages` should only receive compact summary messages at commit time, not the full internal chatter of subagents
+- top-level `existing` remains the canonical shared memory and therefore needs merge semantics
+- `candidate`, `errors`, `attempts`, and `patches` are better treated as local working fields inside extract/update workflows rather than as part of the main planner/router state
+
+This decision was written into `src/SHORT_TERM_PLAN2.md` because it directly changes the near-term implementation order.
+
+### Reducer and Merge Logic Clarified Further
+
+Another important clarification was that not every field that may conceptually receive updates should be solved with the same mechanism.
+
+For top-level `messages`, the project should not reduce all internal subagent messages back into the main conversation state, because that would pollute context and make future planning worse. Instead, only a compact summary of what a subagent committed should be appended at commit time.
+
+For top-level `existing`, some kind of merge logic is definitely required because multiple create/update branches may eventually commit into the same canonical store. The key point here is that `existing` should not be overwritten wholesale by a subagent result. It should be merged deterministically by id so that committed updates and committed new profiles can coexist safely.
+
+At the same time, this merge concern helped reinforce the decision to keep working fields such as `candidate`, `patches`, `errors`, and `attempts` out of the main state. Those fields belong inside subagent-local workflows, where retries and validation loops can happen without leaking intermediate state into the top-level graph.
+
+### Practical Consequence
+
+The short-term plan now treats step 5 not only as a reducer question, but as a state-boundary question.
+
+The next implementation work should therefore begin by aligning code with these state boundaries before going further into the create/update subagent refactor.

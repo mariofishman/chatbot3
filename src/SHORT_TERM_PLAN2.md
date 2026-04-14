@@ -17,49 +17,65 @@ Create the small structured schema that decides:
 
 Make one node whose only job is to read messages and return that decision schema.
 
-5. Decide which state fields need reducers.
+5. Define state boundaries and reducer needs.
 
-List only the fields that parallel branches may write to.
+Decide which fields belong in:
 
-Include how `existing` should be merged when validated candidate updates are committed.
+- main graph state
+- extract subagent state
+- update subagent state
 
-6. Refactor extract into a creation subagent.
+At the top level, keep only the fields needed by the main planner/router flow.
 
-Its only job: extract one or more new UserProfile objects and write them into `state.candidate`.
+Document how `messages` should only receive compact summary messages at commit time, and how `existing` should merge committed updates from subagents.
 
-7. Refactor `extract_updates` into an update subagent.
+6. Refactor the code to use three state models.
 
-Its only job: produce `PatchProposalList` for the target ids it receives.
+Create:
 
-8. Narrow the inputs of `extract_updates`.
+- one main graph state
+- one extract subagent state
+- one update subagent state
+
+Remove subagent-local working fields from the top-level state.
+
+7. Refactor extract into a creation subagent.
+
+Its only job: extract one or more new UserProfile objects inside extract-local state and prepare committed updates to `state.existing`.
+
+8. Refactor `extract_updates` into an update subagent.
+
+Its only job: produce `PatchProposalList` for the target ids it receives, inside update-local state.
+
+9. Narrow the inputs of `extract_updates`.
 
 Make sure it only receives the ids selected by the planner, not all existing objects.
 
-9. Add a planner and extract consistency check inside `extract`.
+10. Add a planner and extract consistency check inside `extract`.
 
 Compare `new_person_count` with the number of extracted profiles. If they do not match, retry the extraction once with an extra prompt note describing the mismatch.
 
-10. Keep `apply_patch` as a separate deterministic node.
+11. Keep `apply_patch` as a separate deterministic node inside the update subagent.
 
-Its only job: apply proposed patches to the correct existing objects and write results into `state.candidate`.
+Its only job: apply proposed patches to the correct existing objects and write results into update-local candidate state.
 
-11. Keep `validate` as a separate deterministic node.
+12. Keep `validate` as a separate deterministic node inside the update subagent.
 
-Its only job: validate updated candidates and write errors to state.
+Its only job: validate updated candidates and write errors into update-local state.
 
-12. Keep `validate_route` after `validate`.
+13. Keep `validate_route` after `validate`.
 
 Its only job: decide between retry/patch or commit.
 
-13. Refactor `patch`.
+14. Refactor `patch`.
 
-Its only job: repair invalid candidates using the validation errors.
+Its only job: repair invalid candidates using the validation errors inside update-local state.
 
-14. Add a final `commit` node.
+15. Add a final `commit` node.
 
-Its only job: merge validated `state.candidate` updates into `state.existing`.
+Its only job: merge committed results from extract and update subagents into top-level `state.existing`, and add only compact summary messages to top-level `state.messages`.
 
-15. Add the parallel branch wiring.
+16. Add the parallel branch wiring.
 
 Allow the planner to trigger both:
 
@@ -68,36 +84,36 @@ Allow the planner to trigger both:
 
 from the same human message.
 
-16. Test only the create path.
+17. Test only the create path.
 
 Use a message that describes a completely new person.
 
-17. Test only the update path.
+18. Test only the update path.
 
 Use a message that clearly updates one existing person.
 
-18. Test the mixed path.
+19. Test the mixed path.
 
 Use one message that both updates one person and introduces another.
 
-19. Test planner and extract count mismatch.
+20. Test planner and extract count mismatch.
 
 Use a case where planner and extract disagree on the number of new profiles and verify the repair path.
 
-20. Verify reducers.
+21. Verify reducers and merge behavior.
 
-Confirm that parallel writes merge correctly into `state.candidate` and that commit merges validated updates correctly into `state.existing`.
+Confirm that parallel writes merge correctly into top-level `state.existing` and that subagent-local working state does not leak into the main graph state.
 
-21. Clean prompt responsibilities.
+22. Clean prompt responsibilities.
 
 Planner prompt decides actions only.
 Create prompt creates only.
 Update prompt patches only.
 
-22. Remove dead logic from the old architecture.
+23. Remove dead logic from the old architecture.
 
 Delete anything no longer used after the refactor.
 
-23. Only then improve memory semantics.
+24. Only then improve memory semantics.
 
-Decide later whether `candidate` remains canonical memory or whether you introduce a separate committed store.
+Decide later whether `existing` remains the only canonical committed store or whether you introduce a separate long-term memory layer.

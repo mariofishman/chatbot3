@@ -143,6 +143,10 @@ Rules:
 - A profile should be selected for update even if only one field changes.
 - If the message clearly introduces a different person who is not one of the existing profiles, increase new_person_count accordingly.
 - A single message may both update existing profiles and introduce new people.
+- Do not map a newly mentioned person onto an existing profile unless the message provides clear evidence they are the same person.
+- If the message gives a different name from every existing profile and does not provide alias or identity-linking evidence, treat that person as new.
+- Shared facts such as company, role, or location are not enough by themselves to conclude that a new named person is actually an existing profile.
+- When in doubt between "update existing" and "create new", prefer creating a new person rather than overwriting an unrelated existing profile.
 - Use only information explicitly stated or strongly implied in the conversation.
 - Do not guess.
 - Do not invent object ids.
