@@ -919,3 +919,54 @@ At the same time, this merge concern helped reinforce the decision to keep worki
 The short-term plan now treats step 5 not only as a reducer question, but as a state-boundary question.
 
 The next implementation work should therefore begin by aligning code with these state boundaries before going further into the create/update subagent refactor.
+
+## 📋 Log Entry: April 17th, 2026 - Step 6 State Models and Step 7 Extract Clarified
+
+### State Models Moved Into `src/state.py`
+
+The state definitions were separated out of `graphv2.py` and moved into `src/state.py`.
+
+At this stage, three state models were defined for the near-term architecture:
+
+- `MainState`
+- `ExtractAgentState`
+- `UpdateAgentState`
+
+`ExtractionState` was intentionally kept as a transitional legacy state and marked with a comment so the ongoing refactor can happen incrementally rather than all at once.
+
+One useful clarification from this step was that `ExtractAgentState` does not need extra working fields yet in the simple implementation, because the extract flow is still expected to run as a small single-node operation and can use local variables internally.
+
+### Extract Step Was Clarified Further
+
+The short-term plan for step 7 was made more explicit.
+
+For the simple version, `extract` should:
+
+- receive `messages`, `existing`, and `plan`
+- use structured output to extract one or more new `UserProfile` objects
+- compare the extracted count against `plan.new_person_count`
+- retry once if the counts do not match
+- return only newly created profiles keyed by fresh ids
+
+This means the simple extract path is committing in the same node rather than introducing a separate commit node inside the extract branch.
+
+### Reducer Logic for Extract Was Clarified
+
+The extract branch will rely on reducer-style merging at the top-level `existing` field.
+
+The important decision here was that extract should not return the full merged `existing` dict. Instead, it should return only the new profiles, and the top-level merge logic should combine them safely with canonical `existing`.
+
+This keeps the simple version aligned with the earlier decision that `existing` is the canonical shared store and should be merged deterministically by id.
+
+### Mismatch Handling Was Upgraded to Human-in-the-Loop
+
+An important improvement to step 7 was made after clarifying what should happen if planner and extractor still disagree after one retry.
+
+Instead of failing closed permanently, the short-term plan now includes a dedicated follow-up step for this case:
+
+- do not commit anything if the planner/extract count still mismatches
+- surface the mismatch explicitly
+- ask the human for clarification
+- then route back into the create path with the additional information
+
+This means the create path now has an explicit human-in-the-loop recovery path rather than silently guessing which count was correct.

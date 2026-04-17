@@ -41,7 +41,32 @@ Remove subagent-local working fields from the top-level state.
 
 7. Refactor extract into a creation subagent.
 
-Its only job: extract one or more new UserProfile objects inside extract-local state and prepare committed updates to `state.existing`.
+Do this in three parts:
+
+- define the exact input and output interface of `extract`
+- refactor the code in `graphv2.py` so `extract` follows that interface
+- add the custom reducer or merge logic needed so `extract` can return only newly created profiles keyed by new ids and have them merged safely into top-level `state.existing`
+
+For the simple version, `extract` should:
+
+- receive `messages`, `existing`, and `plan`
+- extract one or more new `UserProfile` objects
+- compare the number of extracted profiles against `plan.new_person_count`
+- retry once if the counts do not match
+- if the counts still do not match after the retry, return an explicit planner/extract mismatch result and route to a human clarification step
+- return only the new committed profiles keyed by fresh ids, not the full `existing` dict
+
+7a. Define the create-path mismatch handling.
+
+Decide how the graph should handle the explicit planner/extract mismatch result returned by `extract`.
+
+For the simple version:
+
+- do not merge anything into top-level `state.existing`
+- surface the mismatch clearly for inspection
+- ask the human for clarification when planner and extractor still disagree after one retry
+- route the clarification response back into the create path so `extract` can try again with the additional information
+- do not guess which count was correct without clarification
 
 8. Refactor `extract_updates` into an update subagent.
 
