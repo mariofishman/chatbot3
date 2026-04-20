@@ -1,9 +1,6 @@
 from dotenv import load_dotenv
 
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
-from typing import Optional, Literal, Annotated
-from operator import add
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 # from langgraph.checkpoint.memory import InMemorySaver
@@ -12,7 +9,7 @@ from types import NoneType
 
 import uuid
 
-from state import ExtractionState, UserProfile
+from state import ExtractionState, UserProfile, PlannerOutput
 
 load_dotenv()
 llm = ChatOpenAI(model="gpt-4o", temperature=0)

@@ -970,3 +970,64 @@ Instead of failing closed permanently, the short-term plan now includes a dedica
 - then route back into the create path with the additional information
 
 This means the create path now has an explicit human-in-the-loop recovery path rather than silently guessing which count was correct.
+
+## 📋 Log Entry: April 19th, 2026 - Planner Schema Experiment Before Updating `graphv3.py`
+
+### Why We Tested a New Planner Schema
+
+Work paused here while exploring whether the planner should continue returning the old `PlannerOutput` contract or move to a more useful message-selection contract for the new architecture.
+
+The motivation was practical: the old planner output could say how many new people and which existing ids to update, but it did not tell downstream nodes which messages actually contained the relevant information. Since both `extract` and `extract_updates` need tighter context control, a more message-aware planner output started to look like a better fit.
+
+### What Was Tested
+
+A dedicated test file, `src/test_plannerv2.py`, was used to experiment with a richer planner schema without changing `graphv3.py` too early.
+
+The tests explored whether a structured model could:
+
+- receive human messages with explicit ids
+- return those same message ids in structured output
+- separate create-relevant messages from update-relevant messages
+- support the case where one message is relevant for both create and update
+- support a message that updates multiple existing profiles
+- support a message that introduces multiple new people
+
+These tests mattered because they were not only about prompt wording. They were also about finding a schema shape that OpenAI provider-native structured output would actually accept.
+
+### What Was Learned
+
+The experiments confirmed two important things.
+
+First, the message-selection idea is useful. It gives the planner a better contract for downstream routing because it identifies not only what should happen, but also where in the conversation the supporting evidence lives.
+
+Second, provider-native structured output rejected arbitrary-key dictionary fields such as `dict[str, list[str]]` and `dict[str, int]` in this context. This forced the schema toward a safer list-of-typed-objects design instead.
+
+That led to:
+
+- `UpdateLink`
+- `CreateLink`
+- `MessageSelectionOutput`
+
+with branch-specific reasoning summaries and typed link objects rather than free-form dictionaries.
+
+### State Schema Was Improved
+
+`src/state.py` was updated to include the improved planner-side schema components:
+
+- `UpdateLink`
+- `CreateLink`
+- `MessageSelectionOutput`
+
+This newer schema is now documented in the state file and is increasingly looking like the better long-term replacement for `PlannerOutput`.
+
+`PlannerOutput` was intentionally kept for the moment and marked as legacy, because `graphv3.py` has not yet been switched over.
+
+### Where Work Stopped
+
+Work stopped just before improving `planner_node` in `src/graphv3.py`.
+
+That is the next concrete step:
+
+- update `graphv3.py` so the planner uses `MessageSelectionOutput`
+- update the planner prompt accordingly
+- then make `extract` and `extract_updates` consume the improved planner output rather than the older count-and-target contract
