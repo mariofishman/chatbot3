@@ -3,13 +3,13 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
-# from langgraph.checkpoint.memory import InMemorySaver
-from typing import get_origin, get_args, Union
+from langgraph.checkpoint.memory import InMemorySaver
+from typing import Literal, get_origin, get_args, Union
 from types import NoneType
 
 import uuid
 
-from state import MainState, ExtractAgentState, UpdateAgentState, UserProfile, PlannerOutput, UserProfileList
+from state import MainState, ExtractAgentState, UpdateAgentState, UserProfile, UserProfileList, MessageSelectionOutput
 
 load_dotenv()
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -51,80 +51,83 @@ def format_string_from_schema(cls) -> str:
         for k, v in cls.model_fields.items()])
 
 def format_messages(messages: list[BaseMessage])-> str:
-    return "\n".join([f"{m.type}: {m.content}" for m in messages if m.type == "ai" or m.type == "human"]) 
+    return "\n".join([f"{m.type}: {m.content}; id: {m.id}" for m in messages if m.type == "ai" or m.type == "human"]) 
 
 def format_string_from_user_profile(user : UserProfile) -> str:
     return "\n".join([f"{k} : {v}" for k, v in user.model_dump().items()])
 
-
 def planner_node(state: MainState) -> MainState:
-    llm_with_structure = llm.with_structured_output(PlannerOutput)
+    llm_with_structure = llm.with_structured_output(MessageSelectionOutput)
 
     existing_profiles = state.existing 
 
-    format_existing = "\n".join([f"Obj_id = {k}:\n{format_string_from_user_profile(v)}\n"
-                                                    + "-" * 60
-                                                    + "\n"
-                                                    for k, v in existing_profiles.items()])
+    formatted_existing = "\n".join(
+        [
+            f"Obj_id = {k}:\n{format_string_from_user_profile(v)}\n"
+            + "-" * 60
+            + "\n"
+            for k, v in existing_profiles.items()
+        ]
+    )
+
+    formatted_messages = format_messages(state.messages)
 
     PLANNER_PROMPT = """
 You are a planner for a structured memory extraction system.
 
-Your job is only to decide:
-1. which existing profile ids should be updated
-2. how many new profile objects should be created
+Your job is only to identify which human messages are relevant for:
+1. creating or extracting new user profiles
+2. updating existing user profiles
 
-You are not extracting profile fields.
-You are not producing patch operations.
-You are not validating data.
-You are only planning the next actions.
-
-Inputs you will receive:
-- the conversation messages:
-{formatted_messages}
-
-- the currently existing profile objects, each with its object id:
+Existing profiles:
 {formatted_existing}
 
-Return output that matches the PlannerOutput schema exactly.
+Existing messages:
+{formatted_messages}
 
 Rules:
-- If the message clearly adds, corrects, removes, or refines information about an existing profile, include that profile id in target_ids_to_update.
-- Treat any newly stated profile fact as a possible update, including name details, company, role, location, interests, preferences, and important personal or professional attributes.
-- If a message adds a new interest, topic of interest, or preference for an existing person, that counts as an update and the person's id must be included in target_ids_to_update.
-- A profile should be selected for update even if only one field changes.
-- If the message clearly introduces a different person who is not one of the existing profiles, increase new_person_count accordingly.
-- A single message may both update existing profiles and introduce new people.
-- Do not map a newly mentioned person onto an existing profile unless the message provides clear evidence they are the same person.
-- If the message gives a different name from every existing profile and does not provide alias or identity-linking evidence, treat that person as new.
-- Shared facts such as company, role, or location are not enough by themselves to conclude that a new named person is actually an existing profile.
-- When in doubt between "update existing" and "create new", prefer creating a new person rather than overwriting an unrelated existing profile.
-- Use only information explicitly stated or strongly implied in the conversation.
-- Do not guess.
-- Do not invent object ids.
-- Only use target ids that are present in the provided existing objects.
-- If no existing object should be updated, return an empty list for target_ids_to_update.
-- If no new person should be created, return 0 for new_person_count.
-- Keep reasoning_summary short, factual, and high level.
-"""
-    
-    system_msg = SystemMessage(PLANNER_PROMPT.format(formatted_messages=format_messages(state.messages),
-                                                     formatted_existing=format_existing))
+- Only return IDs that belong to human messages.
+- Use the IDs exactly as provided.
+- Ignore the system message.
+- Include every human message that contains profile-relevant information.
+- A single human message may be relevant for both creating new profiles and updating existing profiles.
+- If a message contains update information, add an item to relevant_for_update_links with the message_id and the correct user_profile_ids.
+- If a message contains create information, add an item to relevant_for_create_links with the message_id and the number of new people mentioned in that message.
+- The same message ID may appear in relevant_for_create_links and also inside relevant_for_update_links.
+- Do not invent IDs.
+- Do not invent existing user profile IDs.
 
-    result = llm_with_structure.invoke([system_msg])
+Return output that matches the MessageSelectionOutput schema exactly.
+"""
+
+    
+    system_msg = SystemMessage(PLANNER_PROMPT.format(formatted_existing=formatted_existing, formatted_messages=formatted_messages))
+
+    result = llm_with_structure.invoke([system_msg, *state.messages])
 
     return {"plan": result}
 
-# class PlannerOutput(BaseModel):
-#     target_ids_to_update: list[str]
-#     reasoning_summary: str
-#     new_person_count: int
 
 def extract_node(state: ExtractAgentState) -> ExtractAgentState:
     """calls a llm with structured output to get fully parsed candidate objects"""
     # passes state.messages and process these with a tool calling model to get structured output according to a Schema
     # updates candidate in the state
-    system_prompt = """
+    
+    # unpack the message ids from CreateLink object into a list of message ids
+    relevant_message_ids = [link.message_id for link in state.plan.relevant_for_create_links]
+
+    # DEBUGGING
+    print(f"DEBUGGING: relevant msg ids: {relevant_message_ids}")
+    
+    # DEBUGGING
+    print(f"DEBUGGING: message ids: {[msg.id for msg in state.messages]}")
+
+    relevant_messages = format_messages([msg for msg in state.messages if msg.id in relevant_message_ids])
+    
+    # DEBUGGING
+    print(f"DEBUGGING: formatted msgs: {relevant_messages}")
+
+    system_prompt = f"""
 Extract structured user profile information from the conversation.
 
 Rules:
@@ -133,16 +136,41 @@ Rules:
 - If a field is unknown, leave it null.
 - For list fields, include only items clearly supported by the conversation.
 - Return output that matches the target schema exactly.
-"""
-    structured_llm = llm.with_structured_output(UserProfileList)
-    result = structured_llm.invoke([SystemMessage(system_prompt)] + state.messages)
-    return result 
 
+PLANNER INSTRUCTION:
+{state.plan.reasoning_summary_for_create}
+
+TAKE INTO ACCOUNT THESE MESSAGE(S):
+{relevant_messages}
+"""
+    # FOR DEBUGGING
+    print(f"DEBUGGING: prompt is: \n{system_prompt}")
+
+    structured_llm = llm.with_structured_output(UserProfileList)
+    result = structured_llm.invoke([SystemMessage(system_prompt)])
+
+    # FOR DEBUGGING
+    print(f"DEBUGGING: structured output: {result}")
+
+    new = {str(uuid.uuid4()): usr for usr in result.items}
+    return {"existing": new} 
+
+def route(state: MainState) -> Literal["extract", "__end__"]:
+    plan = state.plan
+    if plan.relevant_for_create_links:
+        return "extract"
+    return "__end__"
 
 builder = StateGraph(MainState)
 
 builder.add_node("planner", planner_node)
-builder.add_edge(START, "planner")
-builder.add_edge("planner", END)
+builder.add_node("extract", extract_node)
 
-graph = builder.compile()
+builder.add_conditional_edges("planner", route)
+builder.add_edge(START, "planner")
+builder.add_edge("extract", END)
+
+
+config = {"configurable": {"thread_id": "1"}}
+memory = InMemorySaver()
+graph = builder.compile(checkpointer=memory)

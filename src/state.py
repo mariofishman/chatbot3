@@ -103,10 +103,12 @@ class ExtractionState(BaseModel):
     patches: list[PatchProposal] = Field(default_factory=list)
     plan: PlannerOutput | None = None
 
+def merge_profiles(existing: dict[str, UserProfile], new: dict[str, UserProfile])->dict[str, UserProfile]:
+    return {**(existing or {}), **(new or {})}
 class MainState(BaseModel):
     messages: Annotated[list[BaseMessage], add]
-    existing: dict[str, UserProfile] = Field(default_factory=dict)
-    plan: PlannerOutput | None = None
+    existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
+    plan: MessageSelectionOutput | None = None
 
 class ExtractAgentState(MainState):
     pass
@@ -116,6 +118,6 @@ class UpdateAgentState(MainState):
     errors: dict[str, list[str]] = Field(default_factory=dict)
     attempts: int = 0
     patches: list[PatchProposal] = Field(default_factory=list)
-
     
+
     

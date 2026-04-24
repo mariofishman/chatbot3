@@ -1031,3 +1031,96 @@ That is the next concrete step:
 - update `graphv3.py` so the planner uses `MessageSelectionOutput`
 - update the planner prompt accordingly
 - then make `extract` and `extract_updates` consume the improved planner output rather than the older count-and-target contract
+
+## 📋 Log Entry: April 23rd, 2026 - `graphv3` Create Path Working in Early Form
+
+### `graphv3.py` Was Moved Forward to the New Planner Contract
+
+Work resumed in `src/graphv3.py` using the newer planner-side schema:
+
+- `MessageSelectionOutput`
+- `CreateLink`
+- `UpdateLink`
+
+The planner node now returns message-selection output rather than the older count-and-target-only schema. This made it possible for downstream create logic to focus only on the human messages the planner marked as relevant.
+
+### Reducer-Based Create Commit Was Put in Place
+
+The top-level `existing` field in `MainState` now uses merge semantics so that the create path can return only newly created profiles keyed by fresh ids.
+
+This was an important implementation checkpoint because it aligns `graphv3` with the short-term plan:
+
+- `extract` should not return the full merged `existing` store
+- `extract` should return only newly created profiles
+- the canonical top-level `existing` store should absorb those committed profiles through merge behavior
+
+### Early `extract` Contract Was Implemented
+
+An early version of `extract_node` was added in `src/graphv3.py`.
+
+In this temporary version, `extract` now:
+
+- reads `state.plan.relevant_for_create_links`
+- narrows itself to the planner-selected create-relevant human messages
+- includes the planner's create-side reasoning summary in the extract prompt
+- calls structured output with `UserProfileList`
+- returns only newly created profiles keyed by fresh UUID strings
+
+This is still an early version because it does **not** yet do:
+
+- planner/extract count consistency checking
+- retry on mismatch
+- explicit mismatch result handling
+- human clarification routing
+
+### Create-Only End-to-End Test Was Run Successfully
+
+A new test file, `src/test_plannerv3.py`, was created to test graph behavior rather than planner output in isolation.
+
+The tested case was a simple create-only message:
+
+- `"I met Lucia Romero, a startup lawyer from Lima."`
+
+The test confirmed that the following path now works in `graphv3`:
+
+- planner
+- route
+- extract
+- reducer merge into top-level `existing`
+
+The result showed that:
+
+- the planner selected the correct human message id
+- `extract` focused on that selected message
+- the model returned one `UserProfile`
+- the new Lucia Romero profile was merged into canonical `existing`
+- the previous existing profiles remained intact
+
+This is the first working end-to-end checkpoint for the create branch in `graphv3`.
+
+### Legacy Compatibility Was Intentionally Kept
+
+`PlannerOutput` was not removed from `src/state.py` because `src/graphv2.py` still uses the older `ExtractionState` path.
+
+This was treated as acceptable for now so the new `graphv3` work could continue without prematurely breaking the older frozen baseline.
+
+### Where Work Stopped
+
+Work stopped with the create-only branch functioning in an early form, but without mismatch handling yet.
+
+### Next Steps
+
+The next implementation steps should be:
+
+- add a planner/extract count check inside `extract_node`
+- compute the expected create count from `plan.relevant_for_create_links`
+- compare that expected count against the number of extracted `UserProfile` objects
+- retry extraction once when the counts do not match, with an extra prompt note describing the mismatch
+- if the retry still mismatches, return an explicit create-path mismatch result instead of committing anything into `existing`
+- define the simple human-clarification path for that mismatch result, following step 7a in `src/SHORT_TERM_PLAN2.md`
+
+After that, the next major phase should be:
+
+- begin the update branch refactor in `graphv3`
+- make `extract_updates` consume only planner-selected update-relevant messages and target ids
+- keep patch application and validation as deterministic update-local steps
