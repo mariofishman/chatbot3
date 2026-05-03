@@ -111,7 +111,8 @@ class MainState(BaseModel):
     plan: MessageSelectionOutput | None = None
 
 class ExtractAgentState(MainState):
-    pass
+    has_create_mismatch: bool = False
+    human_prompt: str | None = None
 
 class UpdateAgentState(MainState):
     candidate: dict[str, UserProfile] = Field(default_factory=dict)

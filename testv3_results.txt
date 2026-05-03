@@ -1,0 +1,562 @@
+TEST1
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 1
+
+
+EXISTING:
+
+{'fbce1313-2ef2-4cbe-b33c-f42cfca1e4e9': {'company': None,
+                                          'interests': [],
+                                          'location': None,
+                                          'name': 'Fake Test Person',
+                                          'role': None},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'The message mentions a new person, Lucia '
+                                 'Romero, who is a startup lawyer from Lima.',
+ 'reasoning_summary_for_update': 'No existing profiles need to be updated '
+                                 'based on the provided message.',
+ 'relevant_for_create_links': [{'message_id': 'hm_001', 'new_person_count': 1}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima.
+END--------------------------------------------------------------------------------END
+TEST2
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 3
+DEBUGGING: retry prompt is:
+
+Your previous extraction was incorrect.
+
+The planner expected 3 new people, but you returned 1 profiles.
+
+The planner's summary of the create-side meaning is:
+The message mentions three new individuals: Lucia Romero, Ana Torres, and Diego Salazar, along with their respective roles and locations.
+
+Re-read the same create-relevant messages and try again.
+
+Return output that matches the UserProfileList schema exactly.
+Return exactly 3 distinct new UserProfile objects.
+Do not guess or invent facts.
+If a field is unknown, leave it null.
+For list fields, include only items clearly supported by the messages.
+
+The create-relevant messages are:
+human: Yesterday I met Lucia Romero, a startup lawyer from Lima, Ana Torres, a product manager from Madrid, and Diego Salazar, a software engineer from Arequipa.; id: hm_002
+
+
+
+EXISTING:
+
+{'1970a74c-e76e-4fe7-901c-74f26c3180f9': {'company': None,
+                                          'interests': [],
+                                          'location': 'Lima',
+                                          'name': 'Lucia Romero',
+                                          'role': 'Startup Lawyer'},
+ 'f066f255-390c-47ec-89f6-5724d1337b9f': {'company': None,
+                                          'interests': [],
+                                          'location': 'Madrid',
+                                          'name': 'Ana Torres',
+                                          'role': 'Product Manager'},
+ 'fbe78215-2366-47ef-b480-d9ad842882d5': {'company': None,
+                                          'interests': [],
+                                          'location': 'Arequipa',
+                                          'name': 'Diego Salazar',
+                                          'role': 'Software Engineer'},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'The message mentions three new individuals: '
+                                 'Lucia Romero, Ana Torres, and Diego Salazar, '
+                                 'along with their respective roles and '
+                                 'locations.',
+ 'reasoning_summary_for_update': 'There is no information in the message that '
+                                 'pertains to updating existing user profiles.',
+ 'relevant_for_create_links': [{'message_id': 'hm_002', 'new_person_count': 3}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+Yesterday I met Lucia Romero, a startup lawyer from Lima, Ana Torres, a product manager from Madrid, and Diego Salazar, a software engineer from Arequipa.
+END--------------------------------------------------------------------------------END
+TEST3
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 2
+DEBUGGING: retry prompt is:
+
+Your previous extraction was incorrect.
+
+The planner expected 2 new people, but you returned 1 profiles.
+
+The planner's summary of the create-side meaning is:
+Two new people, Lucia Romero and Ana Torres, need to be extracted from the messages.
+
+Re-read the same create-relevant messages and try again.
+
+Return output that matches the UserProfileList schema exactly.
+Return exactly 2 distinct new UserProfile objects.
+Do not guess or invent facts.
+If a field is unknown, leave it null.
+For list fields, include only items clearly supported by the messages.
+
+The create-relevant messages are:
+human: I met Lucia Romero, a startup lawyer from Lima.; id: hm_003
+human: I also met Ana Torres, a product manager from Madrid.; id: hm_004
+
+
+
+EXISTING:
+
+{'5926f9c9-81f1-4941-864c-79859e93def1': {'company': None,
+                                          'interests': [],
+                                          'location': 'Lima',
+                                          'name': 'Lucia Romero',
+                                          'role': 'Startup Lawyer'},
+ 'c940feca-95f3-46ce-9c95-7d8418abf857': {'company': None,
+                                          'interests': [],
+                                          'location': 'Madrid',
+                                          'name': 'Ana Torres',
+                                          'role': 'Product Manager'},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'Two new people, Lucia Romero and Ana Torres, '
+                                 'need to be extracted from the messages.',
+ 'reasoning_summary_for_update': 'No existing profiles need to be updated '
+                                 'based on the provided messages.',
+ 'relevant_for_create_links': [{'message_id': 'hm_003', 'new_person_count': 1},
+                               {'message_id': 'hm_004', 'new_person_count': 1}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima.
+================================ Human Message =================================
+
+I also met Ana Torres, a product manager from Madrid.
+END--------------------------------------------------------------------------------END
+TEST4
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 3
+DEBUGGING: retry prompt is:
+
+Your previous extraction was incorrect.
+
+The planner expected 3 new people, but you returned 1 profiles.
+
+The planner's summary of the create-side meaning is:
+The messages mention new individuals with their roles and locations, which are relevant for creating new user profiles.
+
+Re-read the same create-relevant messages and try again.
+
+Return output that matches the UserProfileList schema exactly.
+Return exactly 3 distinct new UserProfile objects.
+Do not guess or invent facts.
+If a field is unknown, leave it null.
+For list fields, include only items clearly supported by the messages.
+
+The create-relevant messages are:
+human: I met Lucia Romero, a startup lawyer from Lima, and Diego Salazar, a software engineer from Arequipa.; id: hm_005
+human: I also met Ana Torres, a product manager from Madrid.; id: hm_006
+
+
+
+EXISTING:
+
+{'54d7a173-fbc7-4e66-955c-bcabc66f1735': {'company': None,
+                                          'interests': [],
+                                          'location': 'Madrid',
+                                          'name': 'Ana Torres',
+                                          'role': 'Product Manager'},
+ '72d58b98-7fd9-46ad-a3a5-6d2e6d9e9b33': {'company': None,
+                                          'interests': [],
+                                          'location': 'Arequipa',
+                                          'name': 'Diego Salazar',
+                                          'role': 'Software Engineer'},
+ 'babf9d87-3d88-4473-aa3e-8113fc7494dc': {'company': None,
+                                          'interests': [],
+                                          'location': 'Lima',
+                                          'name': 'Lucia Romero',
+                                          'role': 'Startup Lawyer'},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'The messages mention new individuals with '
+                                 'their roles and locations, which are '
+                                 'relevant for creating new user profiles.',
+ 'reasoning_summary_for_update': 'There is no information in the messages that '
+                                 'is relevant for updating existing user '
+                                 'profiles.',
+ 'relevant_for_create_links': [{'message_id': 'hm_005', 'new_person_count': 2},
+                               {'message_id': 'hm_006', 'new_person_count': 1}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima, and Diego Salazar, a software engineer from Arequipa.
+================================ Human Message =================================
+
+I also met Ana Torres, a product manager from Madrid.
+END--------------------------------------------------------------------------------END
+TEST5
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 1
+
+
+EXISTING:
+
+{'145005f4-8100-4442-a98b-da58264804f7': {'company': None,
+                                          'interests': [],
+                                          'location': None,
+                                          'name': 'Fake Test Person',
+                                          'role': None},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'A new person, Lucia Romero, a startup lawyer '
+                                 'from Lima, is mentioned and needs to be '
+                                 'extracted.',
+ 'reasoning_summary_for_update': 'No existing profiles need to be updated '
+                                 'based on the provided messages.',
+ 'relevant_for_create_links': [{'message_id': 'hm_008', 'new_person_count': 1}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+Nice weather today.
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima.
+END--------------------------------------------------------------------------------END
+TEST6
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 1
+
+
+EXISTING:
+
+{'4dadff66-64c1-4dfc-a39a-c286b2d0af92': {'company': None,
+                                          'interests': [],
+                                          'location': None,
+                                          'name': 'Fake Test Person',
+                                          'role': None},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'A new person, Lucia Romero, a startup lawyer '
+                                 'from Lima, needs to be extracted.',
+ 'reasoning_summary_for_update': "Philip de Haas's location needs to be "
+                                 'updated to Zurich.',
+ 'relevant_for_create_links': [{'message_id': 'hm_009', 'new_person_count': 1}],
+ 'relevant_for_update_links': [{'message_id': 'hm_009',
+                                'user_profile_ids': ['user_001']}]}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+Philip de Haas now lives in Zurich, and I also met Lucia Romero, a startup lawyer from Lima.
+END--------------------------------------------------------------------------------END
+TEST7
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 1
+
+
+EXISTING:
+
+{'3b5c33be-2c6e-4c3c-851e-715cbd6fbc3c': {'company': None,
+                                          'interests': [],
+                                          'location': None,
+                                          'name': 'Fake Test Person',
+                                          'role': None},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'Lucia Romero is a new person mentioned who '
+                                 'may need a new profile created.',
+ 'reasoning_summary_for_update': 'Philip de Haas has updates regarding his '
+                                 'location and work habits. Mario Fishman has '
+                                 'an update regarding his interests.',
+ 'relevant_for_create_links': [{'message_id': 'hm_013', 'new_person_count': 1}],
+ 'relevant_for_update_links': [{'message_id': 'hm_010',
+                                'user_profile_ids': ['user_001']},
+                               {'message_id': 'hm_011',
+                                'user_profile_ids': ['user_002']},
+                               {'message_id': 'hm_012',
+                                'user_profile_ids': ['user_001']}]}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+Philip de Haas now lives in Zurich.
+================================ Human Message =================================
+
+Mario Fishman is interested in tae kwon do.
+================================ Human Message =================================
+
+Philip de Haas works often from Geneva now.
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima.
+END--------------------------------------------------------------------------------END
+TEST8
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 4
+DEBUGGING: retry prompt is:
+
+Your previous extraction was incorrect.
+
+The planner expected 4 new people, but you returned 1 profiles.
+
+The planner's summary of the create-side meaning is:
+The messages contain introductions to new individuals with their respective roles and locations, which are relevant for creating new user profiles.
+
+Re-read the same create-relevant messages and try again.
+
+Return output that matches the UserProfileList schema exactly.
+Return exactly 4 distinct new UserProfile objects.
+Do not guess or invent facts.
+If a field is unknown, leave it null.
+For list fields, include only items clearly supported by the messages.
+
+The create-relevant messages are:
+human: I met Lucia Romero, a startup lawyer from Lima.; id: hm_014
+human: I met Ana Torres, a product manager from Madrid.; id: hm_015
+human: I met Diego Salazar, a software engineer from Arequipa.; id: hm_016
+human: I met Sofia Vega, an HR consultant from Buenos Aires.; id: hm_017
+
+
+
+EXISTING:
+
+{'4c3592ae-8397-45c4-b8da-17f8bd238051': {'company': None,
+                                          'interests': [],
+                                          'location': 'Madrid',
+                                          'name': 'Ana Torres',
+                                          'role': 'Product Manager'},
+ '807272d9-2d9a-4d44-ab9e-48a9ce647973': {'company': None,
+                                          'interests': [],
+                                          'location': 'Buenos Aires',
+                                          'name': 'Sofia Vega',
+                                          'role': 'HR Consultant'},
+ '8cdb54ba-82ad-4aa1-98bc-b4741e222f93': {'company': None,
+                                          'interests': [],
+                                          'location': 'Lima',
+                                          'name': 'Lucia Romero',
+                                          'role': 'Startup Lawyer'},
+ 'a93ad6a7-b07d-4fff-a88f-fe69668f059e': {'company': None,
+                                          'interests': [],
+                                          'location': 'Arequipa',
+                                          'name': 'Diego Salazar',
+                                          'role': 'Software Engineer'},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'The messages contain introductions to new '
+                                 'individuals with their respective roles and '
+                                 'locations, which are relevant for creating '
+                                 'new user profiles.',
+ 'reasoning_summary_for_update': 'There is no information in the messages that '
+                                 'is relevant for updating existing user '
+                                 'profiles.',
+ 'relevant_for_create_links': [{'message_id': 'hm_014', 'new_person_count': 1},
+                               {'message_id': 'hm_015', 'new_person_count': 1},
+                               {'message_id': 'hm_016', 'new_person_count': 1},
+                               {'message_id': 'hm_017', 'new_person_count': 1}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima.
+================================ Human Message =================================
+
+I met Ana Torres, a product manager from Madrid.
+================================ Human Message =================================
+
+I met Diego Salazar, a software engineer from Arequipa.
+================================ Human Message =================================
+
+I met Sofia Vega, an HR consultant from Buenos Aires.
+END--------------------------------------------------------------------------------END
+TEST9
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 2
+DEBUGGING: retry prompt is:
+
+Your previous extraction was incorrect.
+
+The planner expected 2 new people, but you returned 1 profiles.
+
+The planner's summary of the create-side meaning is:
+The message introduces two new individuals, Lucia Romero and Diego Romero, who are startup lawyers from Lima.
+
+Re-read the same create-relevant messages and try again.
+
+Return output that matches the UserProfileList schema exactly.
+Return exactly 2 distinct new UserProfile objects.
+Do not guess or invent facts.
+If a field is unknown, leave it null.
+For list fields, include only items clearly supported by the messages.
+
+The create-relevant messages are:
+human: At lunch I met the siblings Lucia Romero and Diego Romero, both startup lawyers from Lima.; id: hm_018
+
+
+
+EXISTING:
+
+{'b2cf2d1f-13ff-4565-b335-80854e7de0d2': {'company': None,
+                                          'interests': [],
+                                          'location': 'Lima',
+                                          'name': 'Diego Romero',
+                                          'role': 'Startup Lawyer'},
+ 'f96fe3c2-cc39-4034-8dea-45df9fac2752': {'company': None,
+                                          'interests': [],
+                                          'location': 'Lima',
+                                          'name': 'Lucia Romero',
+                                          'role': 'Startup Lawyer'},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'The message introduces two new individuals, '
+                                 'Lucia Romero and Diego Romero, who are '
+                                 'startup lawyers from Lima.',
+ 'reasoning_summary_for_update': 'There is no information in the message that '
+                                 'pertains to updating existing user profiles.',
+ 'relevant_for_create_links': [{'message_id': 'hm_018', 'new_person_count': 2}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+At lunch I met the siblings Lucia Romero and Diego Romero, both startup lawyers from Lima.
+END--------------------------------------------------------------------------------END
+TEST10
+
+DEBUGGING: structured output: items=[UserProfile(name='Fake Test Person', company=None, role=None, location=None, interests=[])]
+DEBUGGING: new UserProfile count: 1
+
+
+EXISTING:
+
+{'118cfc21-98ae-44b7-b44c-9748ac4da465': {'company': None,
+                                          'interests': [],
+                                          'location': None,
+                                          'name': 'Fake Test Person',
+                                          'role': None},
+ 'user_001': {'company': 'London Metals Limited',
+              'interests': [],
+              'location': 'London',
+              'name': 'Philip de Haas',
+              'role': 'Owner'},
+ 'user_002': {'company': 'Krowdy',
+              'interests': [],
+              'location': 'Peru',
+              'name': 'Mario Fishman',
+              'role': 'CEO'}}
+{'reasoning_summary_for_create': 'Lucia Romero is a new person mentioned who '
+                                 'is a startup lawyer from Lima and is '
+                                 'interested in fintech.',
+ 'reasoning_summary_for_update': 'No existing profiles need to be updated '
+                                 'based on the provided messages.',
+ 'relevant_for_create_links': [{'message_id': 'hm_019', 'new_person_count': 1}],
+ 'relevant_for_update_links': []}
+
+MESSAGES:
+
+================================ Human Message =================================
+
+I met Lucia Romero, a startup lawyer from Lima.
+================================ Human Message =================================
+
+Lucia Romero is also very interested in fintech.
+END--------------------------------------------------------------------------------END

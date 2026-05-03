@@ -1124,3 +1124,148 @@ After that, the next major phase should be:
 - begin the update branch refactor in `graphv3`
 - make `extract_updates` consume only planner-selected update-relevant messages and target ids
 - keep patch application and validation as deterministic update-local steps
+
+## 📋 Log Entry: Week of April 27th, 2026 - Create Subgraph Clarified and Parent/Subgraph Skeleton Refactored
+
+### This Entry Covers Several Short Work Sessions
+
+Work during this period happened across multiple shorter sessions rather than one continuous implementation block.
+
+Because of that, this entry is written as a weekly summary rather than a single-day checkpoint.
+
+### Create Path Was Extended Beyond the Early Happy Path
+
+The create-side flow in `src/graphv3.py` was pushed beyond the original simple success case.
+
+At this stage, `extract_node` now does more than one-pass extraction:
+
+- it narrows itself to planner-selected create-relevant messages
+- it computes the expected create count from `plan.relevant_for_create_links`
+- it compares the expected count against the number of extracted `UserProfile` objects
+- it retries extraction once with explicit corrective feedback when the counts do not match
+
+This moved the create branch much closer to the intended step-7 behavior from `src/SHORT_TERM_PLAN2.md`.
+
+### The Human Clarification Path Was Implemented With a Different Design Than the Original Plan
+
+The original short-term plan said that after a persistent create mismatch, the human clarification should route back into the create path so `extract` could try again with additional information.
+
+During this week, a different design was chosen and accepted as the new working direction:
+
+- if extraction still mismatches after one retry, `extract_node` routes to a human clarification node
+- the human does not provide free-form clarification for `extract` to interpret again
+- instead, the human supplies the corrected `UserProfileList` payload directly
+- the human correction is treated as authoritative
+
+This means the create mismatch recovery path now works more like:
+
+- model attempts extraction
+- model retries once with planner-guided correction
+- if still wrong, human directly fixes the extracted structured result
+
+This is simpler and more deterministic than the original route-back-through-extract version, even if it is less user-friendly than a future UX-oriented solution might be.
+
+### Human Interrupt and Resume Contract Was Clarified
+
+The create subgraph now includes a human clarification node using `interrupt(...)`.
+
+An important design clarification was reached here:
+
+- the resume payload should be JSON-serializable
+- the expected shape should match `UserProfileList`
+- the human node should validate the resumed payload with `UserProfileList.model_validate(...)`
+
+A retry loop was then added around this validation so that invalid human payloads do not crash the run immediately.
+
+Instead:
+
+- the graph interrupts with the first clarification prompt
+- if the resumed payload does not match `UserProfileList`, the graph interrupts again with validation errors and an example payload shape
+- this repeats until the payload validates
+
+This created the first concrete interrupt/resume flow in `graphv3.py`.
+
+### A New Architectural Clarification Was Reached About Main Graph vs Subgraphs
+
+A major conceptual clarification happened during this period.
+
+The earlier `graphv3.py` iterations were still implicitly flattening create/update logic into one graph, even though the intended architecture had already moved toward separate subagents with their own states.
+
+That was corrected conceptually:
+
+- `MainState` belongs to the parent graph
+- `ExtractAgentState` belongs to the create subgraph
+- `UpdateAgentState` belongs to the update subgraph
+- the parent graph should call compiled subgraphs rather than host all internal create/update nodes directly
+
+This was an important architectural checkpoint because it confirmed that the issue was not “different states are confusing,” but rather “the graph boundaries must match the state boundaries.”
+
+### Skeleton Refactor Began for Parent Graph and Subgraphs
+
+Work then shifted from only refining `extract_node` to sketching the full graph structure.
+
+`src/graphv3.py` now contains a skeleton for:
+
+- the create subgraph
+- the update subgraph
+- the parent graph
+- wrapper nodes that invoke the subgraphs from the parent graph
+
+This skeleton is still incomplete in the update branch, but it captures the intended architecture more faithfully than the earlier versions.
+
+### Parent Routing Was Clarified Further
+
+The parent graph should route after the planner based on the planner output:
+
+- to the create subgraph if `relevant_for_create_links` is non-empty
+- to the update subgraph if `relevant_for_update_links` is non-empty
+- to both in parallel if both are non-empty
+- to `__end__` if neither branch is needed
+
+An important clarification here was that this parent-level fan-out is better expressed with `add_conditional_edges(...)` returning multiple destinations, rather than trying to use `Command` for the planner.
+
+At the same time, `Command` remained appropriate inside the create subgraph, where one node both updates subgraph state and chooses whether to route to human clarification or to finish.
+
+### `SHORT_TERM_PLAN3.md` Was Added
+
+A new file, `src/SHORT_TERM_PLAN3.md`, was created as a holding place for improvements that go beyond the “simple version” in `src/SHORT_TERM_PLAN2.md`.
+
+This was done because several ideas emerged that were clearly useful, but were no longer part of the near-term minimal path:
+
+- create-side validation stronger than count-only checking
+- more targeted repair of missing/extra/merged/split extracted people instead of full regeneration
+- a better planner prompt/context strategy so the planner does not always receive all messages and all existing profiles as memory grows
+
+This kept `SHORT_TERM_PLAN2.md` focused while preserving the next-wave architectural ideas.
+
+### Step 7 / 7a Was Reinterpreted and Treated as Complete
+
+After discussion, the create-path work was treated as complete enough for steps `7` and `7a`, with one important caveat:
+
+- the implementation now satisfies the spirit of create mismatch handling
+- but it does so through human-supplied structured correction rather than by routing human clarification back into `extract`
+
+This was accepted as the new short-term design.
+
+### Where Work Paused
+
+Work paused just before beginning the real implementation of the update subgraph.
+
+The update branch skeleton exists, but its internal logic is still mostly placeholder code.
+
+### Next Steps
+
+The next implementation move should be:
+
+- begin step `8` in earnest by implementing `update_patches` / `extract_updates`
+- make the update subgraph consume only the planner-selected update slice, not the full parent context
+- narrow update-side inputs so the update branch receives:
+  - only update-relevant messages
+  - only the target ids selected by the planner
+  - only the matching existing profiles for those ids
+
+After that:
+
+- implement `apply_patch`
+- implement `validate`
+- implement the update repair/commit loop
