@@ -1264,6 +1264,152 @@ The next implementation move should be:
   - only the target ids selected by the planner
   - only the matching existing profiles for those ids
 
+## 📋 Log Entry: May 3rd, 2026 - Wrapper Filtering Moved Into the Parent Graph and Subgraph Contracts Tightened
+
+### The Focus Shifted From Create Logic To Subgraph Input Contracts
+
+After the April 27th checkpoint, the work did not move straight into implementing `update_patches`.
+
+Instead, the next round of work clarified something more foundational first:
+
+- what each subgraph should actually receive as input
+- which filtering should happen in the parent wrappers
+- which assumptions the subgraph nodes are allowed to make
+
+This turned out to matter because the architecture was already pointing toward create and update subgraphs, but the actual data boundaries were still too loose.
+
+### Create-Side Filtering Was Moved Out of `extract_node`
+
+One of the main changes was to stop making `extract_node` discover its own relevant messages from the full parent state.
+
+That responsibility was moved into the parent wrapper `run_extract_subgagent(...)`.
+
+The create wrapper now:
+
+- reads `plan.relevant_for_create_links`
+- extracts only the matching human messages
+- builds a narrowed `MessageSelectionOutput`
+- invokes the extract subgraph with only the create-relevant slice
+
+As a result, `extract_node` is now simpler and cleaner:
+
+- `state.messages` is assumed to already contain only create-relevant messages
+- the node no longer needs to filter message ids internally before building its prompt
+- it still uses the create-side planner summary and create-count information from `state.plan`
+
+This made the create subgraph contract much clearer.
+
+### Update-Side Filtering Was Also Moved Into Its Parent Wrapper
+
+The same narrowing decision was then applied to `run_update_subgagent(...)`.
+
+The update wrapper now filters both:
+
+- `messages`, using `plan.relevant_for_update_links`
+- `existing`, using the user-profile ids attached to each update link
+
+This means the update subgraph no longer needs to receive the full parent context in order to begin working.
+
+Inside the update subgraph:
+
+- `messages` now means “already filtered update-relevant messages”
+- `existing` now means “already filtered target profiles selected by the planner”
+
+This preserves the original field names while changing their scope inside the subgraph.
+
+### Narrowed Planner Objects Are Now Passed Into Each Subgraph
+
+Another important refinement was made to the `plan` field.
+
+Rather than passing the full planner output unchanged into both subgraphs, each wrapper now builds a fresh `MessageSelectionOutput` instance that keeps only the branch-relevant fields:
+
+- the create wrapper keeps create-side fields and clears update-side fields
+- the update wrapper keeps update-side fields and clears create-side fields
+
+This avoided mutating the parent `state.plan` in place and made each subgraph receive a more honest branch-local planner object.
+
+This was an important cleanup because earlier attempts were accidentally modifying or over-sharing planner data.
+
+### The Human Clarification Loop Remained in Place, but the Contract Became More Explicit
+
+The human node inside the create subgraph still follows the same short-term design chosen earlier:
+
+- on persistent mismatch, the human provides the corrected structured result directly
+- the result must match `UserProfileList`
+- invalid payloads trigger another interrupt with validation guidance
+
+What became clearer during this phase is that this is now a real subgraph contract, not only an implementation detail:
+
+- the create subgraph may finish through direct extraction success
+- or it may finish through authoritative human-supplied structured correction
+
+That contract is now consistent with the rest of the create subgraph architecture.
+
+### `SHORT_TERM_PLAN2.md` Was Updated Again To Match the Real Design
+
+Several plan clarifications were written into `src/SHORT_TERM_PLAN2.md` so that the document matches the current implementation direction more closely.
+
+The main changes were:
+
+- step `7a` now explicitly reflects the accepted short-term human-fix design
+- step `9` now explicitly says filtering should happen in the parent wrappers
+- the plan now states that subgraphs keep the same field names (`messages`, `existing`) while receiving already-filtered branch-local context
+- the plan now states that `extract_node` should assume create-filtered messages and the update path should assume update-filtered messages and profiles
+
+This matters because the plan is no longer only aspirational; it now records several concrete architectural decisions that were already implemented.
+
+### Current State of `state.py`
+
+At this checkpoint:
+
+- `MainState` still carries the canonical top-level fields:
+  - `messages`
+  - `existing`
+  - `plan`
+- `ExtractAgentState` extends this with create-specific mismatch and human-interaction fields
+- `UpdateAgentState` still holds the update-side working fields for candidate state, errors, attempts, and patches
+
+An important practical conclusion was accepted during this period:
+
+- a subgraph may keep `existing` in its state schema even if it does not use the full parent `existing` as input
+- the important distinction is between the field name and the scope of the data passed into it
+
+This kept the state models workable without forcing a premature state redesign.
+
+### Current State of `graphv3.py`
+
+By the end of this work period, `graphv3.py` reflects the architecture more faithfully than before:
+
+- the extract subgraph is active and has a clearer input contract
+- the update subgraph skeleton exists but still contains placeholder internal nodes
+- the parent graph now does more of the filtering and branch preparation work it was supposed to own
+- the wrappers now behave more like real boundary adapters between the parent graph and the subgraphs
+
+This is a meaningful architectural improvement even though the update logic itself is not implemented yet.
+
+### Where Work Paused
+
+Work paused after finishing the wrapper-level filtering and branch-specific planner narrowing.
+
+At this point:
+
+- the create branch is cleaner and more self-consistent
+- the update wrapper now prepares filtered subgraph inputs
+- the update subgraph still needs its first real implementation step
+
+### Next Steps
+
+The next implementation move should be:
+
+- begin implementing `update_patches(...)` as the first real update-subgraph node
+- make it consume the already-filtered `messages`, already-filtered `existing`, and narrowed update-side `plan`
+- then continue with the deterministic update flow:
+  - `apply_patch`
+  - `validate`
+  - `route_patches`
+  - `patch`
+  - `commit`
+
 After that:
 
 - implement `apply_patch`

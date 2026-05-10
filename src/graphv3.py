@@ -84,19 +84,7 @@ def extract_node(state: ExtractAgentState) -> Command[Literal["human", "__end__"
     # passes state.messages and process these with a tool calling model to get structured output according to a Schema
     # updates candidate in the state
     
-    # unpack the message ids from CreateLink object into a list of message ids
-    relevant_message_ids = [link.message_id for link in state.plan.relevant_for_create_links]
-
-    # DEBUGGING
-    # print(f"DEBUGGING: relevant msg ids: {relevant_message_ids}")
-    
-    # DEBUGGING
-    # print(f"DEBUGGING: message ids: {[msg.id for msg in state.messages]}")
-
-    relevant_messages = format_messages([msg for msg in state.messages if msg.id in relevant_message_ids])
-    
-    # DEBUGGING
-    # print(f"DEBUGGING: formatted msgs: {relevant_messages}")
+    formatted_messages = format_messages(state.messages)
 
     system_prompt = f"""
 Extract structured user profile information from the conversation.
@@ -112,7 +100,7 @@ PLANNER INSTRUCTION:
 {state.plan.reasoning_summary_for_create}
 
 TAKE INTO ACCOUNT THESE MESSAGE(S):
-{relevant_messages}
+{formatted_messages}
 """
     
     # FOR DEBUGGING
@@ -120,7 +108,6 @@ TAKE INTO ACCOUNT THESE MESSAGE(S):
 
     structured_llm = llm.with_structured_output(UserProfileList)
     result = structured_llm.invoke([SystemMessage(system_prompt)])
-
 
     # FOR DEBUGGING
     # result = UserProfileList(items=[UserProfile(name="Fake Test Person")])
@@ -130,7 +117,6 @@ TAKE INTO ACCOUNT THESE MESSAGE(S):
 
     total_new_person_count = sum([link.new_person_count for link in state.plan.relevant_for_create_links])
     # print(f"DEBUGGING: new UserProfile count: {total_new_person_count}")
-
 
     if total_new_person_count != len(result.items):
         retry_prompt = f"""
@@ -150,7 +136,7 @@ If a field is unknown, leave it null.
 For list fields, include only items clearly supported by the messages.
 
 The create-relevant messages are:
-{relevant_messages}
+{formatted_messages}
 """
         result = structured_llm.invoke([SystemMessage(retry_prompt)])
 
@@ -317,8 +303,29 @@ Return output that matches the MessageSelectionOutput schema exactly.
     return {"plan": result}
 
 def run_extract_subgagent(state: MainState) -> MainState:
-    sub_state = {"plan" : state.plan,
-                 "messages" : state.messages,
+    # unpack the message ids from CreateLink object into a list of message ids
+    relevant_message_ids = [link.message_id for link in state.plan.relevant_for_create_links]
+
+    # DEBUGGING
+    # print(f"DEBUGGING: relevant msg ids: {relevant_message_ids}")
+    
+    # DEBUGGING
+    # print(f"DEBUGGING: message ids: {[msg.id for msg in state.messages]}")
+
+    relevant_messages = [msg for msg in state.messages if msg.id in relevant_message_ids]
+    
+    # DEBUGGING
+    # print(f"DEBUGGING: formatted msgs: {relevant_messages}")
+
+    updated_plan = MessageSelectionOutput(
+                                    reasoning_summary_for_update = "",
+                                    relevant_for_update_links = [],
+                                    reasoning_summary_for_create = state.plan.reasoning_summary_for_create,
+                                    relevant_for_create_links = state.plan.relevant_for_create_links
+                                    )
+
+    sub_state = {"plan" : updated_plan,
+                 "messages" : relevant_messages,
                  "existing" :{}}
     result = extract_subgraph.invoke(sub_state)
     return {
@@ -326,9 +333,30 @@ def run_extract_subgagent(state: MainState) -> MainState:
     }
 
 def run_update_subgagent(state: MainState) -> MainState:
-    sub_state = {"plan" : state.plan,
-                 "messages" : state.messages,
-                 "existing" :state.existing}
+    # I need to filter existing to only pass to "existing" the UserProfile with user_profile_ids shown in the list of UpdateLink.
+
+    relevant_user_profile_ids = [id 
+                                 for update_link_list in state.plan.relevant_for_update_links
+                                   for id in update_link_list.user_profile_ids]
+
+    relevant_existing = {id: profile
+                          for id, profile in state.existing.items()
+                            if id in relevant_user_profile_ids}
+    
+    # I need to filter messages to only pass to "messages" those messages that are in the list of UpdateLink.
+    relevant_message_ids = [link.message_id for link in state.plan.relevant_for_update_links]
+    relevant_messages = [msg for msg in state.messages if msg.id in relevant_message_ids]
+
+    updated_plan = MessageSelectionOutput(
+                                        reasoning_summary_for_create = "",
+                                        relevant_for_create_links = [],
+                                        reasoning_summary_for_update = state.plan.reasoning_summary_for_update,
+                                        relevant_for_update_links = state.plan.relevant_for_update_links
+                                        )
+    
+    sub_state = {"plan" : updated_plan,
+                 "messages" : relevant_messages,
+                 "existing" :relevant_existing}
     result = update_subgraph.invoke(sub_state)
     # need to make sure the custom reducer is good enough for updating existing profiles.
     return {

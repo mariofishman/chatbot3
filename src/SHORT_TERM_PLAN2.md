@@ -49,9 +49,10 @@ Do this in three parts:
 
 For the simple version, `extract` should:
 
-- receive `messages`, `existing`, and `plan`
+- receive create-filtered `messages` and a create-narrowed `plan`
+- keep `existing` in subgraph state as the output channel for newly created profiles, without requiring the full parent `existing` store as input context
 - extract one or more new `UserProfile` objects
-- compare the number of extracted profiles against `plan.new_person_count`
+- compare the number of extracted profiles against the create counts carried in `plan.relevant_for_create_links`
 - retry once if the counts do not match
 - if the counts still do not match after the retry, return an explicit planner/extract mismatch result and route to a human clarification step
 - return only the new committed profiles keyed by fresh ids, not the full `existing` dict
@@ -68,6 +69,12 @@ For the simple version:
 - route the clarification response back into the create path so `extract` can try again with the additional information
 - do not guess which count was correct without clarification
 
+Current short-term implementation note:
+
+- for now, the human clarification path may provide the corrected structured `UserProfileList` result directly
+- this means the create mismatch path does not have to route back through `extract` after human intervention
+- this is accepted as the current working design for steps 7 and 7a, even if a future version may return to a more UX-oriented clarification-and-retry flow
+
 8. Refactor `extract_updates` into an update subagent.
 
 Its only job: produce `PatchProposalList` for the target ids it receives, inside update-local state.
@@ -75,6 +82,36 @@ Its only job: produce `PatchProposalList` for the target ids it receives, inside
 9. Narrow the inputs of `extract_updates`.
 
 Make sure it only receives the ids selected by the planner, not all existing objects.
+
+More explicitly, the update subagent should receive only:
+
+- the update-relevant messages selected by the planner
+- the existing profiles whose ids were selected by the planner
+
+It should not receive the full parent `messages` history or the full parent `existing` store when a smaller filtered subset is enough.
+
+This filtering should happen in the parent wrapper before invoking the subagent, not inside the subagent node itself.
+
+The same design should also be applied to the create wrapper:
+
+- the create wrapper should pass only planner-selected create-relevant messages into the create subagent
+- the update wrapper should pass only planner-selected update-relevant messages and target profiles into the update subagent
+- each wrapper may also pass a narrowed `MessageSelectionOutput` object so each subgraph only sees the planner fields relevant to its own branch
+
+Inside the subagents, the field names can stay the same:
+
+- `messages` inside a subagent should mean the already-filtered relevant messages for that branch
+- `existing` inside the update subagent should mean the already-filtered relevant existing profiles for that branch
+- `plan` inside a subagent can keep the same field name while containing only the branch-local planner slice prepared by the wrapper
+
+So the wrappers change the scope of those fields before subgraph invocation, rather than introducing new field names such as `filtered_messages` or `target_existing`.
+
+As a consequence:
+
+- `extract_node` should assume `state.messages` has already been filtered by the create wrapper
+- `update_patches` / `extract_updates` should assume `state.messages` and `state.existing` have already been filtered by the update wrapper
+
+The subagent nodes should not repeat parent-side filtering logic when the wrapper has already narrowed the branch-specific context.
 
 10. Add a planner and extract consistency check inside `extract`.
 
@@ -96,9 +133,14 @@ Its only job: decide between retry/patch or commit.
 
 Its only job: repair invalid candidates using the validation errors inside update-local state.
 
-15. Add a final `commit` node.
+15. Add a final `commit` node only if it is still needed.
 
-Its only job: merge committed results from extract and update subagents into top-level `state.existing`, and add only compact summary messages to top-level `state.messages`.
+For the current version, reducer-based writes from the subagent wrappers may already be enough to merge results into top-level `state.existing`.
+
+So this step should remain conditional:
+
+- add a dedicated parent-side `commit` / join node only if later needed for explicit post-processing
+- if it is added, its job should be to merge committed results from extract and update subagents into top-level `state.existing`, and add only compact summary messages to top-level `state.messages`
 
 16. Add the parallel branch wiring.
 
