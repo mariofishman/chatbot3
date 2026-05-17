@@ -1413,5 +1413,205 @@ The next implementation move should be:
 After that:
 
 - implement `apply_patch`
+
+## 📋 Log Entry: Week of May 11th, 2026 - Update Branch Refactored Toward Per-User Send Fan-Out
+
+### The Main Architectural Shift This Week Was About Update Granularity
+
+After the May 3rd checkpoint, the focus stayed on the update branch, but the most important change was not yet writing `update_patches(...)`.
+
+Instead, the key architectural question became:
+
+- should one update subgraph run try to update several existing profiles at once
+- or should the parent graph fan out one update run per target `user_id`
+
+The latter direction was chosen.
+
+This was an important shift because it changes the shape of the update branch from:
+
+- one batched update wrapper receiving several profiles at once
+
+to:
+
+- one parent-side fan-out step
+- many per-user update wrapper calls
+- one update subgraph run per target profile
+
+### Why Per-User Update Fan-Out Was Chosen
+
+The main reason for this refactor was to reduce model confusion.
+
+When one LLM call sees several existing profiles and several update-relevant messages together, it is easier for the model to:
+
+- mix up which update belongs to which person
+- apply information from one message to the wrong profile
+- produce patch proposals that are harder to inspect or debug
+
+By splitting the update work one target profile at a time, each update run can focus on:
+
+- one `user_id`
+- one existing `UserProfile`
+- only the messages relevant to that profile
+
+This should make the later update prompts simpler, the model behavior cleaner, and the debugging surface smaller.
+
+### The Parent Graph Now Owns Update Fan-Out
+
+Another architectural clarification happened during this period.
+
+At first, there was some ambiguity about where the update fan-out should live:
+
+- inside the update subgraph
+- or in the parent graph
+
+The chosen direction is now:
+
+- the parent graph owns the update fan-out
+
+This fits the current wrapper-based architecture better because the parent graph is already responsible for:
+
+- receiving the planner output
+- deciding which branches to run
+- preparing branch-specific payloads
+- invoking subgraphs
+
+So the update splitting decision now lives at the same architectural level as the rest of the branch orchestration.
+
+### `Send` Became the Chosen Mechanism for Per-User Update Parallelism
+
+The update branch is now being refactored around LangGraph’s `Send` API.
+
+The important idea here is:
+
+- the planner still decides which existing users need updates
+- but after that, the parent graph can dynamically create one parallel branch per relevant `user_id`
+
+This allows the update branch to move toward a map-reduce style pattern:
+
+- map:
+  - one `Send(...)` per user profile that needs updating
+- reduce:
+  - partial `existing` updates merge back through reducers
+
+This refactor is still incomplete at the node-logic level, but the graph shape now reflects that direction much more clearly.
+
+### `fan_out_updates(...)` Was Introduced As a Helper for Per-User Grouping
+
+A new helper was introduced in `graphv3.py` to regroup planner output by user.
+
+The planner still produces `relevant_for_update_links` in message-oriented form:
+
+- one message id
+- one or more `user_profile_ids` that should be updated from that message
+
+The new helper turns that into a user-oriented grouping:
+
+- one `user_id`
+- all message ids relevant to that user
+
+This matters because one user may be mentioned in multiple messages, and one message may mention multiple users.
+
+So the update branch now moves toward the right per-user payload shape:
+
+- `existing`: one target profile
+- `messages`: all update-relevant messages for that profile
+- `plan`: still available for wrapper-level access where needed
+
+### The Router Was Reworked So Update Fan-Out Happens Directly After Planning
+
+The parent router was also reconsidered.
+
+An important clarification was reached:
+
+- a routing function can return `Send(...)` objects
+- but a routing function is not itself a graph node
+- so there cannot be a “router after a router” unless a real node sits between them
+
+Because of that, the cleaner solution for the current design became:
+
+- keep `planner` as the real parent node
+- keep a single `route_after_planner(...)`
+- let that router directly:
+  - append `"extract_subagent"` when create work exists
+  - extend with `fan_out_updates(state)` when update work exists
+  - return `["__end__"]` when neither branch is needed
+
+This removed the need for a fake or no-op fan-out node and kept the routing logic closer to the expert-style `Send` examples from the LangGraph docs.
+
+### `UpdateAgentState` Was Narrowed Further
+
+Another change during this period was a reconsideration of update-side state boundaries.
+
+`UpdateAgentState` was changed so it no longer simply inherits everything from `MainState`.
+
+The update subgraph now has a narrower state model focused on what one per-user update run actually needs:
+
+- `messages`
+- `existing`
+- `reasoning_summary_for_update`
+- update-local working fields such as `candidate`, `errors`, `attempts`, and `patches`
+
+This is an important step because the update subgraph no longer conceptually represents “all update work for the turn.”
+
+It now represents:
+
+- one update run for one existing target profile
+
+### A Practical Compromise Was Kept Around `reasoning_summary_for_update`
+
+One open design issue during this period was how much to narrow the planner summary text for each per-user update run.
+
+The broad planner field:
+
+- `reasoning_summary_for_update`
+
+may mention several users at once.
+
+A stricter design would try to generate or derive one summary per target user.
+
+That was considered unnecessary for now.
+
+The accepted short-term compromise is:
+
+- keep passing the shared update summary text
+- rely primarily on the already-filtered `messages` and one-user `existing`
+- treat the shared summary only as loose background information
+
+This keeps the refactor smaller while still benefiting from the per-user fan-out architecture.
+
+### The Result Is A Cleaner Shape Even Before `update_patches(...)` Is Written
+
+At the end of this week, the update branch is still not implemented internally, but its outer structure is much clearer:
+
+- the planner selects update-relevant work
+- the parent router can fan that work out one user at a time
+- each update wrapper call is now conceptually responsible for one profile only
+- the update subgraph state is narrower and more local than before
+
+This is a meaningful improvement because it should make the next implementation steps inside `update_subgraph` easier and less error-prone.
+
+### Where Work Paused
+
+Work paused after the per-user `Send` refactor was made coherent enough to test.
+
+At this point:
+
+- the update branch shape has changed significantly
+- the create branch remains as previously stabilized
+- the internal update nodes are still placeholders
+
+### Next Steps
+
+The next implementation move should be:
+
+- test the new planner -> `route_after_planner(...)` -> per-user `Send(...)` fan-out -> `run_update_subgagent(...)` path before writing update logic
+- confirm that each update wrapper call receives the intended one-user payload
+- only then begin implementing:
+  - `update_patches(...)`
+  - `apply_patch(...)`
+  - `validate(...)`
+  - `route_patches(...)`
+  - `patch(...)`
+  - `commit(...)`
 - implement `validate`
 - implement the update repair/commit loop

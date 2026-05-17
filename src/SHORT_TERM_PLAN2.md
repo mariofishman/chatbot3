@@ -77,7 +77,13 @@ Current short-term implementation note:
 
 8. Refactor `extract_updates` into an update subagent.
 
-Its only job: produce `PatchProposalList` for the target ids it receives, inside update-local state.
+Its only job: produce `PatchProposalList` for one target profile at a time inside update-local state.
+
+Current architectural clarification:
+
+- the update branch should no longer be thought of as one batched subgraph run over many existing profiles
+- instead, the parent graph should fan out one update run per target `user_id`
+- each update subgraph run should focus on exactly one existing target profile
 
 9. Narrow the inputs of `extract_updates`.
 
@@ -85,31 +91,38 @@ Make sure it only receives the ids selected by the planner, not all existing obj
 
 More explicitly, the update subagent should receive only:
 
-- the update-relevant messages selected by the planner
-- the existing profiles whose ids were selected by the planner
+- the update-relevant messages for one target user selected by the planner
+- the single existing profile for that target user
 
 It should not receive the full parent `messages` history or the full parent `existing` store when a smaller filtered subset is enough.
 
-This filtering should happen in the parent wrapper before invoking the subagent, not inside the subagent node itself.
+This filtering should happen before invoking the update subgraph, not inside the update node itself.
+
+Current architectural clarification:
+
+- the parent graph should regroup `relevant_for_update_links` by `user_profile_id`
+- after regrouping, it should use `Send(...)` to fan out one parallel `run_update_subgagent(...)` call per target user
+- each `Send(...)` payload should contain only the per-user update slice needed by that wrapper call
+- `run_update_subgagent(...)` should then build the narrower `UpdateAgentState` payload for `update_subgraph`
 
 The same design should also be applied to the create wrapper:
 
 - the create wrapper should pass only planner-selected create-relevant messages into the create subagent
-- the update wrapper should pass only planner-selected update-relevant messages and target profiles into the update subagent
+- the update wrapper path should pass only planner-selected update-relevant messages and the single target profile for each per-user update run
 - each wrapper may also pass a narrowed `MessageSelectionOutput` object so each subgraph only sees the planner fields relevant to its own branch
 
 Inside the subagents, the field names can stay the same:
 
 - `messages` inside a subagent should mean the already-filtered relevant messages for that branch
-- `existing` inside the update subagent should mean the already-filtered relevant existing profiles for that branch
-- `plan` inside a subagent can keep the same field name while containing only the branch-local planner slice prepared by the wrapper
+- `existing` inside the update subagent should now mean the single already-filtered target profile for that one per-user update run
+- `reasoning_summary_for_update` can be passed as shared background context even if it still mentions more than one user, as long as the per-user `messages` and `existing` remain the primary evidence for the update call
 
 So the wrappers change the scope of those fields before subgraph invocation, rather than introducing new field names such as `filtered_messages` or `target_existing`.
 
 As a consequence:
 
 - `extract_node` should assume `state.messages` has already been filtered by the create wrapper
-- `update_patches` / `extract_updates` should assume `state.messages` and `state.existing` have already been filtered by the update wrapper
+- `update_patches` / `extract_updates` should assume `state.messages` and `state.existing` already correspond to one target user only
 
 The subagent nodes should not repeat parent-side filtering logic when the wrapper has already narrowed the branch-specific context.
 
