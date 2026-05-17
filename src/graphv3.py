@@ -143,10 +143,11 @@ The create-relevant messages are:
         # print(f"DEBUGGING: retry prompt is:\n{retry_prompt}")
 
     if total_new_person_count != len(result.items):
+        names_text = "\n".join([person.name for person in result.items])
         human_prompt = f"""
 - The planner thought you should create {total_new_person_count} but the model only created {len(result.items)}
 - The planner also provided this reasoning for create {state.plan.reasoning_summary_for_create} and the model
-extracted only {"\n".join([person.name for person in result.items])}. Dear human, please, return in JSON format
+extracted only {names_text}. Dear human, please, return in JSON format
 the profiles that the model should have extracted. 
 """
         return Command(
