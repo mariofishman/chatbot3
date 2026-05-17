@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import Command, interrupt
+from langgraph.types import Command, Send, interrupt
 from pydantic import ValidationError
 from typing import Literal, Sequence, get_origin, get_args, Union
 from types import NoneType
@@ -212,21 +212,81 @@ class UpdateAgentState(MainState):
 """
 
 def update_patches(state: UpdateAgentState) -> UpdateAgentState:
+    """Generate patch proposals for the filtered update branch.
+
+    This node is the update-side equivalent of the create extractor.
+    It should read only the already-filtered update context prepared by the
+    parent wrapper:
+
+    - `state.messages`: only the update-relevant messages
+    - `state.existing`: only the target profiles selected by the planner
+    - `state.plan`: only the narrowed update-side planner information
+
+    Its only job is to call the model and produce a `PatchProposalList`
+    describing how each selected existing profile should be updated.
+
+    It should not apply patches, validate results, or commit changes.
+    """
     pass
 
 def apply_patch(state: UpdateAgentState) -> UpdateAgentState:
+    """Apply proposed patches into update-local candidate state.
+
+    This node should deterministically apply the patch proposals created by
+    `update_patches` to the filtered `state.existing` profiles and write the
+    updated intermediate results into update-local working state.
+
+    It should not ask the model for new patches, validate the patched
+    profiles, or merge anything into top-level parent state.
+    """
     pass
 
 def route_patches(state: UpdateAgentState) -> Literal["patch", "commit"]:
+    """Choose whether the update branch should repair or finish.
+
+    This routing function should inspect update-local validation results and
+    decide between:
+
+    - `"patch"` when there are validation errors that still need repair
+    - `"commit"` when the candidate profiles are valid and ready to return
+
+    It should not modify state directly.
+    """
     pass
 
 def validate(state: UpdateAgentState) -> UpdateAgentState:
+    """Validate patched candidates and record update-local errors.
+
+    This node should inspect the candidate profiles produced by
+    `apply_patch`, run deterministic validation checks, and store any errors
+    in update-local state.
+
+    It should not generate new patches or commit final results.
+    """
     pass
 
 def patch(state: UpdateAgentState) -> UpdateAgentState:
+    """Repair invalid candidates using validation feedback.
+
+    This node should use the validation errors recorded in update-local state
+    to ask the model for a corrective patching step, or otherwise repair the
+    invalid candidate profiles.
+
+    Its output should prepare the branch for another deterministic validation
+    pass.
+    """
     pass
 
 def commit(state: UpdateAgentState) -> UpdateAgentState:
+    """Return committed update results from the update subgraph.
+
+    This node should take the validated update-local candidates and return the
+    final partial `existing` update that the parent graph can merge into
+    top-level `MainState.existing` through the reducer.
+
+    It should not return the full parent state, only the committed update
+    slice for the selected target profiles.
+    """
     pass
 
 
@@ -332,31 +392,29 @@ def run_extract_subgagent(state: MainState) -> MainState:
         "existing": result["existing"]
     }
 
-def run_update_subgagent(state: MainState) -> MainState:
+def fan_out_updates(state: MainState) -> list[Send]:
     # I need to filter existing to only pass to "existing" the UserProfile with user_profile_ids shown in the list of UpdateLink.
 
-    relevant_user_profile_ids = [id 
-                                 for update_link_list in state.plan.relevant_for_update_links
-                                   for id in update_link_list.user_profile_ids]
+    relevant_for_update_links_by_user_id = {}
 
-    relevant_existing = {id: profile
-                          for id, profile in state.existing.items()
-                            if id in relevant_user_profile_ids}
-    
-    # I need to filter messages to only pass to "messages" those messages that are in the list of UpdateLink.
-    relevant_message_ids = [link.message_id for link in state.plan.relevant_for_update_links]
-    relevant_messages = [msg for msg in state.messages if msg.id in relevant_message_ids]
+    for link in state.plan.relevant_for_update_links:
+        for user_id in link.user_profile_ids:
+            relevant_for_update_links_by_user_id.setdefault(user_id, []).append(link.message_id)
 
-    updated_plan = MessageSelectionOutput(
-                                        reasoning_summary_for_create = "",
-                                        relevant_for_create_links = [],
-                                        reasoning_summary_for_update = state.plan.reasoning_summary_for_update,
-                                        relevant_for_update_links = state.plan.relevant_for_update_links
-                                        )
+    return [
+        Send("update_subagent", 
+            {
+                'existing' : {item[0]: state.existing[item[0]]},
+                'messages' : [msg for msg in state.messages if msg.id in item[1]],
+                'plan' : state.plan
+            }) for item in relevant_for_update_links_by_user_id.items() if item[0] in state.existing
+    ]
+
+def run_update_subgagent(state: MainState) -> MainState:
     
-    sub_state = {"plan" : updated_plan,
-                 "messages" : relevant_messages,
-                 "existing" :relevant_existing}
+    sub_state = {"messages" : state.messages,
+                 "existing" : state.existing,
+                 "reasoning_summary_for_update" : state.plan.reasoning_summary_for_update}
     result = update_subgraph.invoke(sub_state)
     # need to make sure the custom reducer is good enough for updating existing profiles.
     return {
@@ -368,14 +426,14 @@ def run_update_subgagent(state: MainState) -> MainState:
 # ----------------------------
 
 
-def route_after_planner(state: MainState) -> Sequence[Literal["extract_subagent", "update_subagent", "__end__"]]:
+def route_after_planner(state: MainState) -> list[Literal["extract_subagent", "__end__"] | Send]:
     destinations = []
 
     plan = state.plan
     if plan.relevant_for_create_links:
         destinations.append("extract_subagent")
     if plan.relevant_for_update_links:
-        destinations.append("update_subagent")
+        destinations.extend(fan_out_updates(state))
     if not destinations:
         return ["__end__"]
     else: 
@@ -390,9 +448,6 @@ parent_builder.add_node("update_subagent", run_update_subgagent)
 
 parent_builder.add_edge(START, "planner")
 parent_builder.add_conditional_edges("planner", route_after_planner)
-
-# parent_builder.add_edge("planner", "extract_subagent")
-# parent_builder.add_edge("planner", "update_subagent")
 parent_builder.add_edge("extract_subagent", END)
 parent_builder.add_edge("update_subagent", END)
 
