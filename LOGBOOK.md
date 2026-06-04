@@ -1613,5 +1613,90 @@ The next implementation move should be:
   - `route_patches(...)`
   - `patch(...)`
   - `commit(...)`
+
+## 📅 Log Entry: Sunday, May 17th, 2026 - Update Fan-Out Architecture Tested Before Writing Update Logic
+
+### A Dedicated Architecture Test Was Added For The New Update Branch Shape
+
+Before starting to implement the internal nodes of `update_subgraph`, a new test file was added to validate only the update fan-out architecture that had just been refactored.
+
+The new file is:
+
+- `src/test_update_fanout_v3.py`
+
+Its purpose is not to test `update_patches(...)` or patch logic yet.
+
+Instead, it tests the graph shape that now exists around the update branch.
+
+### What The New Test Verifies
+
+The new test file verifies three things:
+
+1. `fan_out_updates(...)` correctly regroups planner-selected update work by `user_id`
+2. `route_after_planner(...)` correctly returns a mixed result containing:
+   - `"extract_subagent"` when create work exists
+   - one `Send(...)` per target update user
+3. `run_update_subgagent(...)` correctly receives one-user payloads and builds the narrower `sub_state` that will later be passed into `update_subgraph`
+
+This was an important checkpoint because the update branch had just been significantly refactored, but the real update-subgraph node logic still did not exist.
+
+### A Fake `update_subgraph` Was Used On Purpose
+
+To keep the test focused on architecture rather than unfinished node logic, the test temporarily replaces the real `update_subgraph` with a fake object.
+
+That fake object simply captures the payload passed into `update_subgraph.invoke(...)`.
+
+This made it possible to inspect:
+
+- whether each `Send(...)` carries the correct one-user `existing`
+- whether each `Send(...)` carries only the relevant messages for that user
+- whether `run_update_subgagent(...)` passes the expected narrowed fields into the update subgraph boundary
+
+### The Test Passed
+
+The local test run succeeded.
+
+This means the current architecture is now working at the level of:
+
+- planner output
+- parent routing
+- per-user `Send(...)` fan-out
+- one-user wrapper payload construction
+
+That does not yet mean the update branch works end to end, because the internal update-subgraph nodes are still placeholders.
+
+But it does mean the refactor reached a stable enough checkpoint to begin writing the real update logic.
+
+### Why This Was A Useful Pause Point
+
+This test confirmed that the most recent refactor was not only conceptually cleaner, but also mechanically coherent.
+
+In particular, it validated that the project can now move forward with the update branch under this structure:
+
+- one planner decision at the parent level
+- one per-user `Send(...)` branch for updates
+- one `run_update_subgagent(...)` call per target profile
+- one narrower `UpdateAgentState` payload passed into `update_subgraph`
+
+That reduces the risk of writing `update_patches(...)` on top of unstable graph wiring.
+
+### Updated Next Steps
+
+The next implementation move should now be:
+
+- begin writing `update_patches(...)`
+- keep it focused on one target profile at a time
+- make it consume:
+  - one-user `existing`
+  - the list of relevant messages for that user
+  - `reasoning_summary_for_update` only as supporting context
+
+After that:
+
+- implement `apply_patch(...)`
+- implement `validate(...)`
+- implement `route_patches(...)`
+- implement `patch(...)`
+- implement `commit(...)`
 - implement `validate`
 - implement the update repair/commit loop

@@ -1,7 +1,11 @@
 from pprint import pprint
+from pathlib import Path
+import sys
 
 from langchain_core.messages import HumanMessage
 from langgraph.types import Send
+
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 import graphv3
 from state import CreateLink, MainState, MessageSelectionOutput, UpdateLink, UserProfile

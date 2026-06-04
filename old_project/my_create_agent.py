@@ -7,16 +7,13 @@ from langgraph.graph.state import CompiledStateGraph
 
 
 def my_create_agent(model: BaseChatModel, tools: list[BaseTool], prompt: str | None = None) -> CompiledStateGraph:
-    
     if tools:
         model = model.bind_tools(tools)
-
-        
 
     def node(state: MessagesState) -> MessagesState:
         messages = state["messages"] if prompt is None else [SystemMessage(prompt)] + state["messages"]
         return {"messages": model.invoke(messages)}
-    
+
     builder = StateGraph(MessagesState)
 
     builder.add_node("node", node)

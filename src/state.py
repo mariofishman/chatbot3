@@ -27,13 +27,6 @@ class UserProfile(BaseModel):
 class UserProfileList(BaseModel):
     items: list[UserProfile] = Field(default_factory=list)
 
-# Legacy planner contract from the earlier count-and-target architecture.
-# Keep it until graphv3.py is switched over to MessageSelectionOutput.
-class PlannerOutput(BaseModel):
-    target_ids_to_update: list[str]
-    reasoning_summary: str
-    new_person_count: int
-
 class UpdateLink(BaseModel):
     """Message-to-existing-profile mapping for the update branch.
 
@@ -90,21 +83,24 @@ class MessageSelectionOutput(BaseModel):
         description="List of links from human message IDs to the existing user profile IDs that should be updated from those messages.",
     )
 
+def merge_profiles(
+    existing: dict[str, UserProfile] | None,
+    new: dict[str, UserProfile] | None,
+) -> dict[str, UserProfile]:
+    """Merge whole UserProfile objects by user_id for parent state.
 
-# Transitional legacy state from the earlier single-state architecture.
-# Keep it only until graphv2.py is fully refactored to use MainState,
-# ExtractAgentState, and UpdateAgentState.
-class ExtractionState(BaseModel):
-    messages: Annotated[list[BaseMessage], add]
-    existing: dict[str, UserProfile] = Field(default_factory=dict)
-    candidate: dict[str, UserProfile] = Field(default_factory=dict)
-    errors: dict[str, list[str]] = Field(default_factory=dict)
-    attempts: int = 0
-    patches: list[PatchProposal] = Field(default_factory=list)
-    plan: PlannerOutput | None = None
+    This reducer operates only at the dict level:
+    - keep existing profiles whose ids are not present in `new`
+    - add brand-new ids from `new`
+    - replace the whole profile when the same id appears in both inputs
 
-def merge_profiles(existing: dict[str, UserProfile], new: dict[str, UserProfile])->dict[str, UserProfile]:
-    return {**(existing or {}), **(new or {})}
+    It does not merge fields inside a UserProfile. Field-level updating belongs
+    to the update subgraph before committed profiles are returned here.
+    """
+    existing_profiles = existing or {}
+    new_profiles = new or {}
+    merged_profiles = {**existing_profiles, **new_profiles}
+    return merged_profiles
 class MainState(BaseModel):
     messages: Annotated[list[BaseMessage], add]
     existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
@@ -120,7 +116,7 @@ class UpdateAgentState(BaseModel):
     reasoning_summary_for_update: str = Field(
         description="Short summary of the update-side information across all relevant messages and all user_id (may be relevant to this particular user_id or to others). This will help the update subagent focus on what existing profiles need to be updated."
     )
-    candidate: dict[str, UserProfile] = Field(default_factory=dict)
+    candidate: dict[str, dict] = Field(default_factory=dict)
     errors: dict[str, list[str]] = Field(default_factory=dict)
     attempts: int = 0
     patches: list[PatchProposal] = Field(default_factory=list)

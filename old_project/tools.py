@@ -1,11 +1,13 @@
 from langchain.tools import tool
 
+
 @tool
 def add(a: float, b: float) -> float:
     """
     This function should be used to add two numbers
     """
     return a + b
+
 
 @tool
 def multiply(a: float, b: float) -> float:
@@ -14,12 +16,14 @@ def multiply(a: float, b: float) -> float:
     """
     return a * b
 
+
 @tool
 def divide(a: float, b: float) -> float:
     """
     This function should be used to divide two numbers
     """
     return a / b
+
 
 @tool
 def subtract(a: float, b: float) -> float:
@@ -29,7 +33,6 @@ def subtract(a: float, b: float) -> float:
     return a - b
 
 
-# Mock search result
 search_result = """The Model Context Protocol (MCP) is an open standard protocol developed 
 by Anthropic to enable seamless integration between AI models and external systems like 
 tools, databases, and other services. It acts as a standardized communication layer, 
@@ -38,7 +41,6 @@ efficient manner. Essentially, MCP simplifies the process of connecting AI assis
 to external services by providing a unified language for data exchange. """
 
 
-# Mock search tool
 @tool(parse_docstring=True)
 def web_search(
     query: str,
