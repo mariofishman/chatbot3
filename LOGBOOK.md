@@ -1700,3 +1700,169 @@ After that:
 - implement `commit(...)`
 - implement `validate`
 - implement the update repair/commit loop
+
+## 📅 Log Entry: June 4th, 2026 - Update Subgraph Implemented As A Full Patch-Validation-Repair Loop
+
+### The Internal Update Branch Was Finally Built
+
+Since the previous log entry, the biggest architectural change has been inside `src/graphv3.py`.
+
+The update branch is no longer only a per-user fan-out shell. Its internal nodes now exist and work together as a real loop:
+
+- `update_patches(...)`
+- `apply_patch(...)`
+- `validate(...)`
+- `route_patches(...)`
+- `patch(...)`
+- `human_repair(...)`
+- `commit(...)`
+
+This means the project now has a full update-side path from:
+
+- one selected existing user profile
+- one set of update-relevant messages
+- one patch proposal cycle
+- deterministic patch application
+- deterministic validation
+- retry routing
+- human fallback after retry exhaustion
+- final commit back into parent memory
+
+### The Update Loop Became More TrustCall-Like
+
+The update subgraph was clarified around a more precise separation of responsibilities:
+
+- `update_patches(...)` asks the model for patch proposals only
+- `apply_patch(...)` applies those patch operations deterministically
+- `validate(...)` reconstructs the raw candidate as `UserProfile` and turns reconstruction failures into `state.errors`
+- `route_patches(...)` decides whether to:
+  - commit
+  - retry with `patch(...)`
+  - or hand off to `human_repair(...)` after the attempt limit
+- `patch(...)` asks the model for corrective patches using the failed candidate plus validation errors
+- `human_repair(...)` preserves state and interrupts for human-provided patch proposals
+- `commit(...)` rebuilds the final `UserProfile` and returns only the one-user `existing` slice
+
+This is important because the project is no longer mixing:
+
+- patch generation
+- patch application
+- validation
+- retry decisions
+- final merge
+
+inside the same step.
+
+### `state.py` Was Simplified Around The New Contract
+
+The state layer was also tightened to match the new update design.
+
+The most important change is that `UpdateAgentState.candidate` is now raw patched dict data, not a `UserProfile` object.
+
+That allows:
+
+- `apply_patch(...)` to stay deterministic
+- `validate(...)` to own schema reconstruction
+- `state.errors` to become the true repair signal for the retry loop
+
+Also, `merge_profiles(...)` was clarified and constrained:
+
+- it now exists only as a dict-level reducer by `user_id`
+- it keeps missing ids
+- adds new ids
+- replaces whole `UserProfile` objects on collision
+- it does not merge fields inside a profile
+
+That field-level work now belongs clearly to the update subgraph before commit.
+
+Legacy state structures that only served the old `graphv2` path were removed from `state.py`.
+
+### Human Repair Was Added Instead Of Hard Failure
+
+One important architectural decision changed during implementation.
+
+Originally, retry exhaustion in `route_patches(...)` was treated like a hard runtime failure.
+
+That was replaced with a better design:
+
+- after the patch-attempt limit is reached
+- the graph routes to `human_repair(...)`
+- `human_repair(...)` uses `interrupt(...)`
+- the human returns a `PatchProposalList`
+- the graph goes back through:
+  - `apply_patch(...)`
+  - `validate(...)`
+
+This preserves state instead of losing it through an exception, which is a better fit for the project.
+
+### The New Update Logic Is Now Protected By Tests
+
+The new architecture is not only implemented; it is also covered by focused tests.
+
+The update-side and state-side tests added in this phase include:
+
+- `tests/test_update_patches_v3.py`
+- `tests/test_apply_patch_v3.py`
+- `tests/test_validate_v3.py`
+- `tests/test_route_patches_v3.py`
+- `tests/test_patch_v3.py`
+- `tests/test_human_repair_v3.py`
+- `tests/test_commit_v3.py`
+- `tests/test_state_reducers_v3.py`
+
+Together with the earlier:
+
+- `tests/test_update_fanout_v3.py`
+- `tests/test_route_after_planner_v3.py`
+
+the codebase now has meaningful regression protection around the current live architecture.
+
+### Repository Cleanup Also Happened During This Phase
+
+While the update loop was being implemented, the repository was also cleaned up:
+
+- legacy tests were moved out of `src/`
+- the active test suite was moved into `tests/`
+- old simpler code was moved into `old_project/`
+- deprecated graph v2 artifacts were separated from the live path
+- microplans were centralized under `microplans/`
+
+This makes the active codebase much easier to read:
+
+- live runtime code is mainly in `src/graphv3.py` and `src/state.py`
+- tests are in `tests/`
+- implementation planning notes are in `microplans/`
+
+### Current Stage
+
+The update subgraph is now implemented at the node level and tested at the unit level.
+
+This is a major shift from the previous checkpoint, where only the outer update fan-out shape had been verified.
+
+The current architecture now supports:
+
+- planner-driven create/update separation
+- one-user-at-a-time update fan-out
+- patch generation
+- deterministic patch application
+- validation-driven retry
+- human repair fallback
+- committed whole-profile replacement in parent state
+
+### Likely Next Step
+
+The next strong checkpoint would be:
+
+- one integration test for the full update subgraph retry loop
+
+That would verify the whole sequence:
+
+- `update_patches`
+- `apply_patch`
+- `validate`
+- `route_patches`
+- `patch`
+- `human_repair` when the retry limit is exhausted
+- `commit`
+
+under one controlled end-to-end scenario.
