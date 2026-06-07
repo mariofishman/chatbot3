@@ -1866,3 +1866,271 @@ That would verify the whole sequence:
 - `commit`
 
 under one controlled end-to-end scenario.
+
+## 📅 Log Entry: January 4th, an architectural problem was found
+
+While trying to design the mixed create-and-update integration path, a real limitation appeared in the current batch-planning architecture.
+
+The problem is not in the update subgraph itself. The problem is earlier, in the way the create side currently represents new people across multiple messages.
+
+Right now, create planning works with `CreateLink(message_id, new_person_count)`.
+
+That means the system can say:
+
+- this message is relevant for creating new people
+- this message contains `N` new people
+
+But it cannot say:
+
+- this later message is about the same new person already mentioned in an earlier message
+
+That became visible in the following kind of case:
+
+- one shared message mentions:
+  - a new person
+  - another new person
+  - and one already known person
+- a later message adds more information about one of the new people
+- another later message updates the already known person
+
+Example:
+
+- `hm_001`: "I met Lucia Romero from Lima and Diego Salazar from Bogota. Philip de Haas is now based in Zurich."
+- `hm_002`: "Lucia Romero is a startup lawyer."
+- `hm_003`: "Philip de Haas also works often from Geneva."
+
+In the current architecture:
+
+- `hm_001` can say `new_person_count = 2`
+- but `hm_002` has no way to say:
+  - "this is not a second new person"
+  - "this is more evidence about Lucia from `hm_001`"
+
+So if both messages are treated as create-relevant, the create side counts too many new people.
+
+This revealed an important architectural fact:
+
+- the current update path is able to accumulate multiple messages for one known user because it has stable `user_id`s
+- the current create path does not yet have an equivalent notion of stable temporary person identity inside one batch
+
+So the mixed create+update test did not fail because the test was bad.
+
+It failed because the test exposed a real missing capability in the planner/extraction architecture.
+
+### What We Are Thinking Of Doing
+
+Two directions were considered.
+
+#### Option 1: Run The Whole Parent Flow One Message At A Time
+
+This would mean:
+
+- process message 1
+- update `state.existing`
+- process message 2 with the new memory
+- process message 3 with the newer memory
+
+This would solve the identity problem with relatively little architectural change.
+
+But it likely makes token usage and latency much worse, because the whole parent flow would run once per message.
+
+#### Option 2: Add A Batch-Level Person Grouping Stage
+
+This is the direction that currently looks more promising.
+
+The idea would be:
+
+- loop over the incoming human messages
+- identify people mentioned in each message
+- maintain temporary per-person buckets for the current batch
+- if a person mentioned in a later message matches a person already discovered in the batch, add the new evidence to the same bucket
+- only after that grouping step, decide:
+  - which buckets match existing users and should go to update
+  - which buckets are truly new and should go to create
+
+That would let repeated mentions of Lucia across multiple messages accumulate into one create candidate without rerunning the whole graph one message at a time.
+
+### Why This Matters
+
+This is a bigger issue than one failing integration test.
+
+It means the current planner schema is still good enough for:
+
+- create-only messages
+- update-only messages
+- batch updates for already known users
+
+But it is not yet rich enough for:
+
+- mixed create+update batches where new people are mentioned repeatedly across messages before they have final ids
+
+So the next architectural work is not just "finish one more test."
+
+The next architectural work is to decide how the system should represent new-person identity across a batch before those people become committed profiles.
+
+# Project Logbook Part 3 - Subject Identity Refactor
+
+## 📅 Log Entry: June 7th, 2026 - Architectural problem confirmed and next refactor direction chosen
+
+This entry marks the beginning of a new phase of the project.
+
+The work recorded in the earlier parts of the logbook was mainly about getting the current `graphv3.py` architecture built and tested:
+
+- planner
+- create path
+- update fanout
+- update subgraph
+- validation / repair loop
+- reducers
+- unit tests
+- parent-path integration tests
+
+That work was successful enough that the codebase could finally be tested against stronger mixed-path scenarios rather than only simpler create-only or update-only cases.
+
+While doing that, a previously suspected limitation became much clearer.
+
+### What Happened Today
+
+Three things happened during this checkpoint:
+
+- the mixed create+update path was analyzed more seriously
+- the create-side identity limitation was confirmed as a real architectural issue rather than only a test-design problem
+- the next refactor direction was narrowed into a simpler short-term scope plus a separate architecture note
+
+This matters because the project is no longer only extending the current graph.
+
+It is now also deciding which parts of the upstream planner logic should be split out into their own earlier stages.
+
+### Where We Are Coming From
+
+The current architecture was designed around a top-level planner that reads a batch of messages and decides:
+
+- which messages are relevant for create
+- which messages are relevant for update
+
+For the create side, the current planner schema is still built around:
+
+- one `message_id`
+- one `new_person_count`
+
+That was good enough to get the current architecture off the ground and make the create path work for simpler cases.
+
+But it turns out to be too weak for repeated mentions of the same new person across a batch.
+
+### The Problem That Was Confirmed
+
+The important discovery is that the current create-side planner contract is not rich enough for repeated mentions of the same new person across multiple messages in the same batch.
+
+It works for:
+
+- create-only messages
+- update-only messages
+- repeated updates to already known users
+
+But it does not let the system express:
+
+- Lucia in message 1 is the same new person as Lucia in message 2
+- Diego in message 1 is the same new person as Diego in message 3
+
+At the same time, the update side already has stable `user_id`s and can correctly accumulate multiple messages for one known user through fanout.
+
+So the pressure point is not the update subgraph.
+It is the lack of a batch-level subject identity layer before create/update planning.
+
+### Why We Are Moving In A New Direction
+
+One possible fix would have been to run the whole parent graph one message at a time so later messages could see newly committed profiles from earlier messages in the same run.
+
+That would likely solve the identity problem with relatively little code change.
+
+But it would likely make:
+
+- latency worse
+- token usage worse
+- batching weaker
+
+So that is not the preferred direction.
+
+The preferred direction is now to move the current architecture one step closer to the broader north-star logic described in `memory_agent.drawio.xml`.
+
+### What `memory_agent.drawio.xml` Is
+
+`memory_agent.drawio.xml` is not the current implementation plan.
+
+It is the broader architectural north-star for the project.
+
+It describes a stronger upstream workflow with ideas such as:
+
+- subject and fact detection
+- candidate retrieval / filtering
+- identity resolution
+- action proposal
+- earlier human disambiguation when needed
+
+For Part 3, that file is important mainly as a north-star reference.
+
+It explains where the project may grow later, but it does not define the exact scope of the next short-term refactor by itself.
+
+That file became important again because the mixed create+update limitation is exactly the kind of issue that the upstream subject-identification and identity-resolution logic was meant to address.
+
+### What The New Refactor Direction Is
+
+The current short-term conclusion is:
+
+- do not solve this by rerunning the whole parent graph one message at a time
+- instead, move the architecture toward:
+  - subject detection
+  - candidate retrieval / filtering
+  - identity resolution
+  - action proposal
+
+as a stepping stone toward the broader north-star logic in `memory_agent.drawio.xml`.
+
+More concretely, the next refactor wave should:
+
+- add an upstream subject-identification and identity-resolution stage
+- redesign create planning so it becomes person-centric rather than message-count-centric
+- only later refactor create execution into one-create-unit-per-person fanout
+
+After the later architecture discussion, that direction was narrowed further for Part 3:
+
+- subject detection: yes
+- candidate retrieval: yes
+- binary existing/new classification: yes
+- ambiguity handling: later
+- human clarification for subject identity: later
+- full non-simple-fact scope handling: later
+
+### Why This Starts Project Logbook Part 3
+
+This is now `Project Logbook Part 3` because the project is no longer only extending the architecture built in Part 2.
+
+It is beginning a new wave of work:
+
+- not only adding nodes
+- but revisiting the upstream subject model itself
+- while trying to preserve what already works in `graphv3.py`
+
+So Part 3 marks the start of the subject-identity refactor phase.
+
+The detailed architectural reasoning for this shift is recorded in [ARCHITECTURAL_NOTE.md](/Users/mariofishman/projects/chatbot3/ARCHITECTURAL_NOTE.md).
+
+### Important Memory For Later
+
+If returning to this entry in a future session, remember:
+
+- the current `graphv3.py` architecture is not being thrown away
+- the update subgraph and update fanout are still considered solid
+- the weak point is upstream from extraction, in the create-side subject representation
+- `route_after_planner(...)` is part of the pressure point because it currently routes create work using a message-count-centric planner output
+- Part 3 is intentionally conservative:
+  - existing vs new only
+  - no ambiguity branch yet
+  - no identity clarification workflow yet
+
+### Likely Next Step
+
+The likely next implementation step after this entry is:
+
+- define the exact Stage 1 upstream subject-bucket schema in code-facing terms
+- then introduce the new upstream node and state fields that support it
