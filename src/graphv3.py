@@ -103,20 +103,10 @@ TAKE INTO ACCOUNT THESE MESSAGE(S):
 {formatted_messages}
 """
     
-    # FOR DEBUGGING
-    # print(f"DEBUGGING: prompt is: \n{system_prompt}")
-
     structured_llm = llm.with_structured_output(UserProfileList)
     result = structured_llm.invoke([SystemMessage(system_prompt)])
 
-    # FOR DEBUGGING
-    # result = UserProfileList(items=[UserProfile(name="Fake Test Person")])
-
-    # FOR DEBUGGING
-    # print(f"DEBUGGING: structured output: {result}")
-
     total_new_person_count = sum([link.new_person_count for link in state.plan.relevant_for_create_links])
-    # print(f"DEBUGGING: new UserProfile count: {total_new_person_count}")
 
     if total_new_person_count != len(result.items):
         retry_prompt = f"""
@@ -139,8 +129,6 @@ The create-relevant messages are:
 {formatted_messages}
 """
         result = structured_llm.invoke([SystemMessage(retry_prompt)])
-
-        # print(f"DEBUGGING: retry prompt is:\n{retry_prompt}")
 
     if total_new_person_count != len(result.items):
         names_text = "\n".join([person.name for person in result.items])
@@ -460,7 +448,6 @@ def route_patches(state: UpdateAgentState) -> Literal["patch", "commit", "human_
         return "human_repair"
     return "patch"
 
-
 def human_repair(state: UpdateAgentState) -> UpdateAgentState:
     """Pause the update loop and ask a human for corrective patches.
 
@@ -696,7 +683,7 @@ update_builder.add_edge(START, "update_patches")
 update_builder.add_edge("update_patches", "apply_patch")
 update_builder.add_edge("apply_patch", "validate")
 update_builder.add_conditional_edges("validate", route_patches)
-update_builder.add_edge("patch", "validate")
+update_builder.add_edge("patch", "apply_patch")
 update_builder.add_edge("human_repair", "apply_patch")
 update_builder.add_edge("commit", END)
 
@@ -708,6 +695,9 @@ update_subgraph = update_builder.compile()
 
 
 def planner_node(state: MainState) -> MainState:
+    """Plan which messages should create or update user profiles.
+    Use existing profiles and conversation messages to produce structured links.
+    Return the planner result as the state's plan update."""
     llm_with_structure = llm.with_structured_output(MessageSelectionOutput)
 
     existing_profiles = state.existing 
@@ -775,16 +765,7 @@ def run_extract_subgagent(state: MainState) -> MainState:
     # unpack the message ids from CreateLink object into a list of message ids
     relevant_message_ids = [link.message_id for link in state.plan.relevant_for_create_links]
 
-    # DEBUGGING
-    # print(f"DEBUGGING: relevant msg ids: {relevant_message_ids}")
-    
-    # DEBUGGING
-    # print(f"DEBUGGING: message ids: {[msg.id for msg in state.messages]}")
-
     relevant_messages = [msg for msg in state.messages if msg.id in relevant_message_ids]
-    
-    # DEBUGGING
-    # print(f"DEBUGGING: formatted msgs: {relevant_messages}")
 
     updated_plan = MessageSelectionOutput(
                                     reasoning_summary_for_update = "",
@@ -856,7 +837,15 @@ parent_builder.add_node("update_subagent", run_update_subgagent)
 
 
 parent_builder.add_edge(START, "planner")
-parent_builder.add_conditional_edges("planner", route_after_planner)
+parent_builder.add_conditional_edges(
+    "planner",
+    route_after_planner,
+    {
+        "extract_subagent": "extract_subagent",
+        "update_subagent": "update_subagent",
+        "__end__": END,
+    },
+)
 parent_builder.add_edge("extract_subagent", END)
 parent_builder.add_edge("update_subagent", END)
 
