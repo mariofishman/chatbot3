@@ -304,6 +304,10 @@ def apply_patch(state: UpdateAgentState) -> UpdateAgentState:
     any patch proposal targets a different user id than the one carried in
     `state.existing`.
 
+    If `update_patches()` returns no patch proposals for the target profile,
+    this node should treat that as a no-op update and carry the unchanged raw
+    profile forward into `candidate` instead of crashing the loop.
+
     It should not ask the model for new patches, eagerly reconstruct the
     final `UserProfile`, validate the patched profile semantically, or merge
     anything into top-level parent state.
@@ -317,13 +321,12 @@ def apply_patch(state: UpdateAgentState) -> UpdateAgentState:
         raise ValueError(
             "apply_patch() expects exactly one target profile in state.existing."
         )
-    if not state.patches:
-        raise ValueError(
-            "apply_patch() expects at least one PatchProposal in state.patches."
-        )
 
     target_id, target_profile = next(iter(state.existing.items()))
     target_data = target_profile.model_dump()
+
+    if not state.patches:
+        return {"candidate": {target_id: target_data}}
 
     def decode_pointer_token(token: str) -> str:
         return token.replace("~1", "/").replace("~0", "~")
@@ -762,16 +765,18 @@ Return output that matches the MessageSelectionOutput schema exactly.
     return {"plan": result}
 
 def run_extract_subgagent(state: MainState) -> MainState:
+    state_plan = state["plan"] if isinstance(state, dict) else state.plan
+    state_messages = state["messages"] if isinstance(state, dict) else state.messages
     # unpack the message ids from CreateLink object into a list of message ids
-    relevant_message_ids = [link.message_id for link in state.plan.relevant_for_create_links]
+    relevant_message_ids = [link.message_id for link in state_plan.relevant_for_create_links]
 
-    relevant_messages = [msg for msg in state.messages if msg.id in relevant_message_ids]
+    relevant_messages = [msg for msg in state_messages if msg.id in relevant_message_ids]
 
     updated_plan = MessageSelectionOutput(
                                     reasoning_summary_for_update = "",
                                     relevant_for_update_links = [],
-                                    reasoning_summary_for_create = state.plan.reasoning_summary_for_create,
-                                    relevant_for_create_links = state.plan.relevant_for_create_links
+                                    reasoning_summary_for_create = state_plan.reasoning_summary_for_create,
+                                    relevant_for_create_links = state_plan.relevant_for_create_links
                                     )
 
     sub_state = {"plan" : updated_plan,
@@ -801,10 +806,13 @@ def fan_out_updates(state: MainState) -> list[Send]:
     ]
 
 def run_update_subgagent(state: MainState) -> MainState:
-    
-    sub_state = {"messages" : state.messages,
-                 "existing" : state.existing,
-                 "reasoning_summary_for_update" : state.plan.reasoning_summary_for_update}
+    state_messages = state["messages"] if isinstance(state, dict) else state.messages
+    state_existing = state["existing"] if isinstance(state, dict) else state.existing
+    state_plan = state["plan"] if isinstance(state, dict) else state.plan
+
+    sub_state = {"messages" : state_messages,
+                 "existing" : state_existing,
+                 "reasoning_summary_for_update" : state_plan.reasoning_summary_for_update}
     result = update_subgraph.invoke(sub_state)
     # need to make sure the custom reducer is good enough for updating existing profiles.
     return {

@@ -18,7 +18,7 @@ from state import PatchOp, PatchProposal, UpdateAgentState, UserProfile
 #
 # It only verifies that apply_patch():
 # - enforces the one-profile contract
-# - requires at least one PatchProposal
+# - treats an empty patch list as a no-op update
 # - applies add / replace / remove deterministically
 # - writes the patched raw result into candidate
 
@@ -58,26 +58,26 @@ def test_apply_patch_happy_path():
 
     candidate = result["candidate"]["user_001"]
     assert candidate["location"] == "Zurich"
-    assert candidate["company"] is None
+    assert "company" not in candidate
     assert candidate["interests"] == ["metals", "finance", "AI hiring"]
 
     print("\nTEST 1: apply_patch() happy path")
     pprint(candidate)
 
 
-def test_apply_patch_rejects_empty_patches():
+def test_apply_patch_allows_empty_patches_as_noop():
     state = build_state()
     state.patches = []
 
-    try:
-        apply_patch(state)
-    except ValueError as e:
-        assert "at least one PatchProposal" in str(e)
-        print("\nTEST 2: empty patches rejected")
-        print(str(e))
-        return
+    result = apply_patch(state)
+    candidate = result["candidate"]["user_001"]
 
-    raise AssertionError("apply_patch() should reject empty state.patches.")
+    assert candidate["name"] == "Philip de Haas"
+    assert candidate["company"] == "London Metals Limited"
+    assert candidate["location"] == "London"
+    assert candidate["interests"] == ["metals", "finance"]
+    print("\nTEST 2: empty patches treated as no-op")
+    pprint(candidate)
 
 
 def test_apply_patch_rejects_mismatched_target():
@@ -102,7 +102,7 @@ def test_apply_patch_rejects_mismatched_target():
 
 def main():
     test_apply_patch_happy_path()
-    test_apply_patch_rejects_empty_patches()
+    test_apply_patch_allows_empty_patches_as_noop()
     test_apply_patch_rejects_mismatched_target()
     print("\nAll apply_patch() checks passed.")
 
