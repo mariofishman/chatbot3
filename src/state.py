@@ -57,6 +57,8 @@ class SubjectBucket(BaseModel):
             )
         return self
 
+class SubjectBucketList(BaseModel):
+    items: list[SubjectBucket] = Field(default_factory=list)
 class UpdateLink(BaseModel):
     """Message-to-existing-profile mapping for the update branch.
 
@@ -135,6 +137,8 @@ class MainState(BaseModel):
     messages: Annotated[list[BaseMessage], add]
     existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
     plan: MessageSelectionOutput | None = None
+    subjects: SubjectBucketList = Field(default_factory=SubjectBucketList)
+
 
 class ExtractAgentState(MainState):
     has_create_mismatch: bool = False
