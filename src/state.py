@@ -2,7 +2,7 @@ from operator import add
 from typing import Annotated, Literal, Optional
 
 from langchain_core.messages import BaseMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class PatchOp(BaseModel):
@@ -26,6 +26,36 @@ class UserProfile(BaseModel):
 
 class UserProfileList(BaseModel):
     items: list[UserProfile] = Field(default_factory=list)
+
+class SubjectBucket(BaseModel):
+    """One batch-local person identified before create/update planning."""
+
+    subject_label: str = Field(
+        min_length=1,
+        description="Best available label for the detected person.",
+    )
+    message_ids: list[str] = Field(
+        min_length=1,
+        description="IDs of all messages in the current batch that refer to this person."
+    )
+    candidate_existing_id: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Chosen existing profile ID when this person is classified as existing.",
+    )
+    classification: Literal["existing", "new"]
+
+    @model_validator(mode="after")
+    def validate_existing_candidate_contract(self):
+        if self.classification == "existing" and self.candidate_existing_id is None:
+            raise ValueError(
+                "candidate_existing_id must be set when classification is 'existing'."
+            )
+        if self.classification == "new" and self.candidate_existing_id is not None:
+            raise ValueError(
+                "candidate_existing_id must be None when classification is 'new'."
+            )
+        return self
 
 class UpdateLink(BaseModel):
     """Message-to-existing-profile mapping for the update branch.
