@@ -208,7 +208,6 @@ extract_subgraph = extract_builder.compile()
 class UpdateAgentState(BaseModel):
     messages: Annotated[list[BaseMessage], add]
     existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
-    reasoning_summary_for_update: str
     candidate: dict[str, dict] = Field(default_factory=dict)
     errors: dict[str, list[str]] = Field(default_factory=dict)
     attempts: int = 0
@@ -923,14 +922,14 @@ def fan_out_updates(state: MainState) -> list[Send]:
 
     return sends
 
-def run_update_subgagent(state: MainState) -> MainState:
+def run_update_subgagent(state: MainState | dict) -> MainState:
+    """Run one update branch and return a partial parent-state update."""
     state_messages = state["messages"] if isinstance(state, dict) else state.messages
     state_existing = state["existing"] if isinstance(state, dict) else state.existing
 
     sub_state = {"messages" : state_messages,
                  "existing" : state_existing}
     result = update_subgraph.invoke(sub_state)
-    # need to make sure the custom reducer is good enough for updating existing profiles.
     return {
         "existing": result["existing"]
     }
