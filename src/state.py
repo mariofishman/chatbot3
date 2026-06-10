@@ -147,9 +147,6 @@ class ExtractAgentState(MainState):
 class UpdateAgentState(BaseModel):
     messages: Annotated[list[BaseMessage], add]
     existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
-    reasoning_summary_for_update: str = Field(
-        description="Short summary of the update-side information across all relevant messages and all user_id (may be relevant to this particular user_id or to others). This will help the update subagent focus on what existing profiles need to be updated."
-    )
     candidate: dict[str, dict] = Field(default_factory=dict)
     errors: dict[str, list[str]] = Field(default_factory=dict)
     attempts: int = 0

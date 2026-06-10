@@ -224,8 +224,6 @@ def update_patches(state: UpdateAgentState) -> UpdateAgentState:
 
     - `state.messages`: only the update-relevant messages for one target user
     - `state.existing`: only the single target profile for that user
-    - `state.reasoning_summary_for_update`: shared planner-side update summary
-      used only as supporting context
 
     Its only job is to call the model and produce a `PatchProposalList`
     describing how that single target profile should be updated.
@@ -255,10 +253,7 @@ Your job is only to propose patch operations for the target profile shown
 below. Do not rewrite the whole object. Do not apply the patch yourself.
 Use the existing profile as the baseline truth.
 
-The update reasoning summary may mention other users or unrelated updates.
-Ignore any part of that summary that is not relevant to the single target
-profile shown below. Use the summary only as supporting background. The
-primary sources of truth are:
+The only sources of truth are:
 - the single target profile shown below
 - the filtered messages shown below
 
@@ -280,9 +275,6 @@ USERPROFILE SCHEMA:
 
 TARGET EXISTING PROFILE:
 {formatted_existing}
-
-SUPPORTING UPDATE SUMMARY:
-{state.reasoning_summary_for_update}
 
 RELEVANT MESSAGE(S) FOR THIS PROFILE:
 {formatted_messages}
@@ -624,9 +616,6 @@ Obj_id = {candidate_id}
 VALIDATION ERRORS:
 {formatted_errors}
 
-SUPPORTING UPDATE SUMMARY:
-{state.reasoning_summary_for_update}
-
 UPDATE-RELEVANT MESSAGES:
 {formatted_messages}
 """
@@ -909,31 +898,37 @@ def run_extract_subgagent(state: MainState) -> MainState:
     }
 
 def fan_out_updates(state: MainState) -> list[Send]:
-    # I need to filter existing to only pass to "existing" the UserProfile with user_profile_ids shown in the list of UpdateLink.
+    """Create one update branch for each existing-classified subject bucket."""
+    sends = []
 
-    relevant_for_update_links_by_user_id = {}
+    for subject in state.subjects.items:
+        if subject.classification != "existing":
+            continue
 
-    for link in state.plan.relevant_for_update_links:
-        for user_id in link.user_profile_ids:
-            relevant_for_update_links_by_user_id.setdefault(user_id, []).append(link.message_id)
+        user_id = subject.candidate_existing_id
 
-    return [
-        Send("update_subagent", 
-            {
-                'existing' : {item[0]: state.existing[item[0]]},
-                'messages' : [msg for msg in state.messages if msg.id in item[1]],
-                'plan' : state.plan
-            }) for item in relevant_for_update_links_by_user_id.items() if item[0] in state.existing
-    ]
+        sends.append(
+            Send(
+                "update_subagent",
+                {
+                    "existing": {user_id: state.existing[user_id]},
+                    "messages": [
+                        message
+                        for message in state.messages
+                        if message.id in subject.message_ids
+                    ],
+                },
+            )
+        )
+
+    return sends
 
 def run_update_subgagent(state: MainState) -> MainState:
     state_messages = state["messages"] if isinstance(state, dict) else state.messages
     state_existing = state["existing"] if isinstance(state, dict) else state.existing
-    state_plan = state["plan"] if isinstance(state, dict) else state.plan
 
     sub_state = {"messages" : state_messages,
-                 "existing" : state_existing,
-                 "reasoning_summary_for_update" : state_plan.reasoning_summary_for_update}
+                 "existing" : state_existing}
     result = update_subgraph.invoke(sub_state)
     # need to make sure the custom reducer is good enough for updating existing profiles.
     return {
@@ -948,10 +943,9 @@ def run_update_subgagent(state: MainState) -> MainState:
 def route_after_planner(state: MainState) -> list[Literal["extract_subagent", "__end__"] | Send]:
     destinations = []
 
-    plan = state.plan
-    if plan.relevant_for_create_links:
+    if state.plan.relevant_for_create_links:
         destinations.append("extract_subagent")
-    if plan.relevant_for_update_links:
+    if any(subject.classification == "existing" for subject in state.subjects.items):
         destinations.extend(fan_out_updates(state))
     if not destinations:
         return ["__end__"]
