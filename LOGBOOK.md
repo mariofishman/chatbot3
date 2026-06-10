@@ -2275,3 +2275,15 @@ Proceed to Step 4 of `SHORT_TERM_PLAN3v3.md`:
 - redesign the create-side portion of `MessageSelectionOutput`
 - replace message-count-based create planning with one create unit per
   identified new person and its supporting message IDs
+
+## 📅 Log Entry: June 9th, 2026 - Architecture Review
+
+After completing Steps 1–3, we recognized that `SubjectBucketList` already
+contains the information needed to route both new and existing subjects.
+Keeping `planner_node(...)`, `CreateLink`, `UpdateLink`, and
+`MessageSelectionOutput` would duplicate that planning information.
+
+`SHORT_TERM_PLAN3v4.md` now supersedes the remaining steps of
+`SHORT_TERM_PLAN3v3.md`. It preserves completed Steps 1–3, then migrates both
+fanout paths and their consumers before safely removing the old planner
+architecture.
