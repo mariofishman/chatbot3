@@ -2287,3 +2287,34 @@ Keeping `planner_node(...)`, `CreateLink`, `UpdateLink`, and
 `SHORT_TERM_PLAN3v3.md`. It preserves completed Steps 1–3, then migrates both
 fanout paths and their consumers before safely removing the old planner
 architecture.
+
+## 📅 Log Entry: June 10th, 2026 - Entry 1: Existing-Subject Update Path Migrated
+
+Step 4 of `SHORT_TERM_PLAN3v4.md` migrated the parent graph's update path from
+the old planner output to `SubjectBucketList`.
+
+`fan_out_updates(...)` now reads existing-classified subject buckets directly
+from `state.subjects`. Each bucket creates one `Send("update_subagent", ...)`
+containing exactly one matched existing profile and only that subject's
+supporting messages. It no longer reads or sends `state.plan`.
+
+`run_update_subgagent(...)` was adapted to accept this narrower payload and
+forward only the selected profile and supporting messages into
+`update_subgraph`.
+
+`route_after_planner(...)` is temporarily hybrid during the migration:
+
+- create routing still uses the old planner output
+- update routing now uses existing-classified subject buckets
+
+The obsolete update reasoning summary was also removed from
+`UpdateAgentState`, `update_patches(...)`, and `patch(...)`. Update proposals
+now rely on the selected existing profile and supporting messages; repair
+additionally relies on the failed candidate and validation errors.
+
+Future reference commit:
+
+```text
+b9fa4821f3072ab6be770ff6edd988c2ce074c53
+Migrate update fanout to subject buckets
+```
