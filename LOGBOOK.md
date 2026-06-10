@@ -2134,3 +2134,144 @@ The likely next implementation step after this entry is:
 
 - define the exact Stage 1 upstream subject-bucket schema in code-facing terms
 - then introduce the new upstream node and state fields that support it
+
+## 📅 Log Entry: June 9th, 2026 - Part 3 Steps 1-3 Completed: Upstream Subject Detection Added
+
+The first three executable steps of
+[SHORT_TERM_PLAN3v3.md](/Users/mariofishman/projects/chatbot3/src/SHORT_TERM_PLAN3v3.md)
+are now complete.
+
+This work created the first concrete layer of the subject-identity refactor
+described in the June 7 entry. The parent graph can now identify people across
+the received human-message batch before the existing planner runs.
+
+### Step 1: Upstream Subject Schema
+
+`state.py` now defines:
+
+- `SubjectBucket`
+- `SubjectBucketList`
+
+One `SubjectBucket` represents exactly one batch-local person and contains:
+
+- the best available subject label
+- all supporting human-message IDs
+- an optional matching existing-profile ID
+- a binary classification:
+  - `existing`
+  - `new`
+
+The schema enforces that existing subjects have a candidate existing ID and
+new subjects do not.
+
+### Step 2: Parent State Extended
+
+`MainState` now carries:
+
+- `subjects: SubjectBucketList`
+
+It defaults to an empty `SubjectBucketList`, allowing the graph to begin before
+the upstream node has detected subjects.
+
+The existing profile reducer, update-side state, and update-subgraph contracts
+were deliberately left unchanged.
+
+### Step 3: Upstream Subject Node Added
+
+`graphv3.py` now includes `upstream_subject_node(...)`.
+
+The parent graph begins:
+
+```text
+START -> upstream_subject_node -> planner
+```
+
+The node:
+
+- analyzes the human messages currently received through state
+- groups repeated mentions of the same person
+- separates multiple people mentioned in one message
+- supports unnamed people described through relationships
+- compares detected people with `state.existing`
+- classifies each person as existing or new
+- treats uncertain existing-profile matches conservatively as new
+- validates returned message and profile IDs
+- retries once when the model returns unknown identifiers
+
+The existing planner and downstream create/update paths remain unchanged for
+now. They do not yet consume the new subject buckets; that begins in Step 4.
+
+### Runner And Accumulated-Message Contract
+
+The terminal runner was checked to clarify how repeated passes work.
+
+`playground_run_graph.py` submits only the newly entered human message on each
+turn. The checkpointer supplies earlier state, and the additive message reducer
+combines prior messages with the new input.
+
+Therefore:
+
+- the upstream node can analyze accumulated conversation history
+- earlier messages are not resubmitted by the runner
+- message IDs are not duplicated during the intended runner workflow
+- the same accumulated history can be analyzed again without mutating it
+
+### Edge-Case And Test Work
+
+The subject-detection behavior was explored in:
+
+- [UPSTREAM_SUBJECT_NODE_EDGE_CASES.md](/Users/mariofishman/projects/chatbot3/microplans/UPSTREAM_SUBJECT_NODE_EDGE_CASES.md)
+
+That document records:
+
+- empty and no-subject inputs
+- named and unnamed subjects
+- mixed existing/new people
+- repeated mentions across messages and turns
+- matching and ambiguity boundaries
+- state-shape and message-ID boundaries
+- retry and structured-output boundaries
+- semantic cases that require later live-model evaluation
+
+A focused deterministic test file was added:
+
+- `tests/test_upstream_subject_node_v3.py`
+
+It verifies the node's deterministic contracts, including:
+
+- prompt construction
+- subject-bucket shapes
+- checkpointed two-turn accumulation
+- repeated analysis without message mutation
+- existing/new reclassification across passes
+- message/profile ID validation
+- retry behavior
+
+Verification result:
+
+```text
+19 passed
+```
+
+### Important Memory For Later
+
+- Subject detection is now separate from planning, but the planner still uses
+  the old message-count-based create schema.
+- The node is intentionally batch-agnostic: it analyzes whichever accumulated
+  messages the graph supplies.
+- Binary classification remains intentionally simple and risky:
+  - existing
+  - new
+- Full ambiguity handling, clarification, groups, and stronger identity
+  resolution remain future work.
+- Deterministic tests can protect node contracts, but they cannot prove that a
+  live model will correctly resolve every natural-language identity case.
+
+### Next Step
+
+Proceed to Step 4 of `SHORT_TERM_PLAN3v3.md`:
+
+- redesign `CreateLink`
+- redesign the create-side portion of `MessageSelectionOutput`
+- replace message-count-based create planning with one create unit per
+  identified new person and its supporting message IDs
