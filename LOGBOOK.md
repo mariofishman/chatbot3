@@ -2367,3 +2367,21 @@ Migrate create path to subject bucket fanout
 
 Build and review the focused Step 5 replacement tests before continuing the
 remaining roadmap cleanup.
+
+## 📅 Log Entry: June 11th, 2026 - Entry 1: Subject-Planner Naming Finalized
+
+Completed the remaining post-Step-5 naming cleanup. The upstream subject node
+is now `subject_planner_node(...)`, its router is
+`route_after_subject_planner(...)`, and the parent graph wiring uses the same
+names. The terminal runner now displays `SubjectBucketList` instead of the
+removed planner output.
+
+Future reference commit:
+
+```text
+bd5a7a2
+Finalize subject-planner naming and runner output
+```
+
+The implementation roadmap is now ready to move into focused fanout, wrapper,
+and parent integration testing.
