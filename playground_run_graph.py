@@ -33,29 +33,19 @@ def print_existing(existing: dict) -> None:
         print(f"  interests={interests}")
 
 
-def print_plan(plan) -> None:
-    if not plan:
-        print("Plan: none")
+def print_subjects(subjects) -> None:
+    if not subjects or not subjects.items:
+        print("Subjects: none")
         return
 
-    print("Plan:")
-    print(f"- create summary: {plan.reasoning_summary_for_create or '-'}")
-    print(f"- update summary: {plan.reasoning_summary_for_update or '-'}")
-
-    if plan.relevant_for_create_links:
-        print("- create links:")
-        for link in plan.relevant_for_create_links:
-            print(f"  - message_id={link.message_id} | new_person_count={link.new_person_count}")
-    else:
-        print("- create links: none")
-
-    if plan.relevant_for_update_links:
-        print("- update links:")
-        for link in plan.relevant_for_update_links:
-            ids = ", ".join(link.user_profile_ids) if link.user_profile_ids else "-"
-            print(f"  - message_id={link.message_id} | user_profile_ids=[{ids}]")
-    else:
-        print("- update links: none")
+    print(f"Subjects: {len(subjects.items)}")
+    for subject in subjects.items:
+        message_ids = ", ".join(subject.message_ids)
+        existing_id = subject.candidate_existing_id or "-"
+        print(
+            f"- {subject.subject_label} | {subject.classification} "
+            f"| existing_id={existing_id} | messages=[{message_ids}]"
+        )
 
 
 def print_snapshot_summary() -> None:
@@ -63,7 +53,7 @@ def print_snapshot_summary() -> None:
     values = snapshot.values
 
     print("\nThread state summary:\n")
-    print_plan(values.get("plan"))
+    print_subjects(values.get("subjects"))
     print()
     print_existing(values.get("existing", {}))
 
@@ -93,7 +83,7 @@ def run_user_turn(user_text: str) -> None:
     result = graph.invoke(state, config=config)
 
     print("\nTurn result:\n")
-    print_plan(result.get("plan"))
+    print_subjects(result.get("subjects"))
     print()
     print_existing(result.get("existing", {}))
     print_snapshot_summary()
@@ -112,7 +102,7 @@ def resume_interrupt() -> None:
     result = graph.invoke(Command(resume=payload), config=config)
 
     print("\nTurn result after resume:\n")
-    print_plan(result.get("plan"))
+    print_subjects(result.get("subjects"))
     print()
     print_existing(result.get("existing", {}))
     print_snapshot_summary()

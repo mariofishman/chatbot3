@@ -90,7 +90,7 @@ def test_no_human_messages_returns_empty_without_calling_llm(monkeypatch):
         ]
     )
 
-    result = graphv3.upstream_subject_node(state)
+    result = graphv3.subject_planner_node(state)
 
     assert result == {"subjects": SubjectBucketList()}
     assert fake_llm.structured_calls == []
@@ -104,7 +104,7 @@ def test_no_subject_human_message_accepts_empty_llm_result(monkeypatch):
         messages=[HumanMessage(id="hm_001", content="The weather is excellent today.")]
     )
 
-    result = graphv3.upstream_subject_node(state)
+    result = graphv3.subject_planner_node(state)
 
     assert result == {"subjects": empty_result}
     assert len(fake_llm.fake_structured_llm.calls) == 1
@@ -127,7 +127,7 @@ def test_invalid_human_message_ids_fail_before_llm(monkeypatch, messages, error_
     fake_llm = install_fake_llm(monkeypatch)
 
     with pytest.raises(ValueError, match=error_text):
-        graphv3.upstream_subject_node(build_state(messages=messages))
+        graphv3.subject_planner_node(build_state(messages=messages))
 
     assert fake_llm.structured_calls == []
 
@@ -144,7 +144,7 @@ def test_prompt_uses_only_human_messages_and_contains_core_contract(monkeypatch)
         existing={"user_001": UserProfile(name="John")},
     )
 
-    graphv3.upstream_subject_node(state)
+    graphv3.subject_planner_node(state)
 
     prompt = fake_llm.fake_structured_llm.calls[0][0].content
     assert "human: I met Lucia.; id: hm_001" in prompt
@@ -166,7 +166,7 @@ def test_prompt_explicitly_marks_empty_existing_profiles(monkeypatch):
         messages=[HumanMessage(id="hm_001", content="I met Lucia.")]
     )
 
-    graphv3.upstream_subject_node(state)
+    graphv3.subject_planner_node(state)
 
     prompt = fake_llm.fake_structured_llm.calls[0][0].content
     assert "Existing user profiles:\n(none)" in prompt
@@ -199,7 +199,7 @@ def test_accepts_supported_subject_bucket_shapes(monkeypatch, subjects):
         existing={"user_001": UserProfile(name="John")},
     )
 
-    result = graphv3.upstream_subject_node(state)
+    result = graphv3.subject_planner_node(state)
 
     assert bucket_values(result) == bucket_values({"subjects": fake_result})
 
@@ -212,7 +212,7 @@ def test_accepts_existing_subject_mentioned_without_new_facts(monkeypatch):
         existing={"user_001": UserProfile(name="John")},
     )
 
-    result = graphv3.upstream_subject_node(state)
+    result = graphv3.subject_planner_node(state)
 
     assert result["subjects"] == fake_result
 
@@ -231,7 +231,7 @@ def test_bucket_comparison_does_not_treat_output_order_as_semantic(monkeypatch):
         existing={"user_001": UserProfile(name="John")},
     )
 
-    result = graphv3.upstream_subject_node(state)
+    result = graphv3.subject_planner_node(state)
 
     assert bucket_values(result) == bucket_values({"subjects": expected})
 
@@ -250,8 +250,8 @@ def test_accumulated_messages_are_sent_once_and_direct_reanalysis_does_not_mutat
     state = build_state(messages=messages)
     original_messages = list(state.messages)
 
-    first_result = graphv3.upstream_subject_node(state)
-    second_result = graphv3.upstream_subject_node(state)
+    first_result = graphv3.subject_planner_node(state)
+    second_result = graphv3.subject_planner_node(state)
 
     assert first_result == second_result
     assert state.messages == original_messages
@@ -269,7 +269,7 @@ def test_checkpointed_second_turn_adds_only_new_message_without_duplicates(monke
     )
     fake_llm = install_fake_llm(monkeypatch, first_result, second_result)
     builder = StateGraph(MainState)
-    builder.add_node("subjects", graphv3.upstream_subject_node)
+    builder.add_node("subjects", graphv3.subject_planner_node)
     builder.add_edge(START, "subjects")
     builder.add_edge("subjects", END)
     graph = builder.compile(checkpointer=InMemorySaver())
@@ -302,8 +302,8 @@ def test_later_pass_can_reclassify_previously_new_person_as_existing(monkeypatch
     fake_llm = install_fake_llm(monkeypatch, first_result, second_result)
     messages = [HumanMessage(id="hm_001", content="I met Lucia.")]
 
-    first = graphv3.upstream_subject_node(build_state(messages=messages))
-    second = graphv3.upstream_subject_node(
+    first = graphv3.subject_planner_node(build_state(messages=messages))
+    second = graphv3.subject_planner_node(
         build_state(
             messages=messages,
             existing={"user_lucia": UserProfile(name="Lucia")},
@@ -339,7 +339,7 @@ def test_unknown_identifiers_retry_once_and_accept_correction(monkeypatch, inval
         existing={"user_001": UserProfile(name="John")},
     )
 
-    result = graphv3.upstream_subject_node(state)
+    result = graphv3.subject_planner_node(state)
 
     assert result["subjects"] == corrected
     assert len(fake_llm.fake_structured_llm.calls) == 2
@@ -355,6 +355,6 @@ def test_repeated_unknown_identifiers_raise_after_retry(monkeypatch):
     )
 
     with pytest.raises(ValueError, match="repeatedly returned unknown identifiers"):
-        graphv3.upstream_subject_node(state)
+        graphv3.subject_planner_node(state)
 
     assert len(fake_llm.fake_structured_llm.calls) == 2

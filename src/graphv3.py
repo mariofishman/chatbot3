@@ -591,7 +591,7 @@ update_subgraph = update_builder.compile()
 # ----------------------------
 
 
-def upstream_subject_node(state: MainState) -> dict[str, SubjectBucketList]:
+def subject_planner_node(state: MainState) -> MainState:
     """Return one binary-classified subject bucket per person in the message batch.
 
     Repeated mentions are grouped, uncertain matches are classified as new,
@@ -603,9 +603,9 @@ def upstream_subject_node(state: MainState) -> dict[str, SubjectBucketList]:
 
     human_message_ids = [message.id for message in human_messages]
     if any(message_id is None for message_id in human_message_ids):
-        raise ValueError("upstream_subject_node requires every human message to have an id.")
+        raise ValueError("subject_planner_node requires every human message to have an id.")
     if len(human_message_ids) != len(set(human_message_ids)):
-        raise ValueError("upstream_subject_node requires unique human message ids.")
+        raise ValueError("subject_planner_node requires unique human message ids.")
 
     available_message_ids = {message.id for message in human_messages}
     available_existing_ids = set(state.existing)
@@ -704,7 +704,7 @@ Original task:
         unknown_message_ids, unknown_existing_ids = find_unknown_ids(result)
         if unknown_message_ids or unknown_existing_ids:
             raise ValueError(
-                "upstream_subject_node repeatedly returned unknown identifiers: "
+                "subject_planner_node repeatedly returned unknown identifiers: "
                 f"message_ids={sorted(unknown_message_ids)}, "
                 f"existing_profile_ids={sorted(unknown_existing_ids)}"
             )
@@ -793,7 +793,7 @@ def run_update_subgagent(state: MainState | dict) -> MainState:
 # ----------------------------
 
 
-def route_after_planner(state: MainState) -> list[Literal["extract_subagent", "__end__"] | Send]:
+def route_after_subject_planner(state: MainState) -> list[Literal["extract_subagent", "__end__"] | Send]:
     destinations = [
         *fan_out_creates(state),
         *fan_out_updates(state),
@@ -805,15 +805,15 @@ def route_after_planner(state: MainState) -> list[Literal["extract_subagent", "_
 
 parent_builder = StateGraph(MainState)
 
-parent_builder.add_node("upstream_subject_node", upstream_subject_node)
+parent_builder.add_node("subject_planner_node", subject_planner_node)
 parent_builder.add_node("extract_subagent", run_extract_subgagent)
 parent_builder.add_node("update_subagent", run_update_subgagent)
 
 
-parent_builder.add_edge(START, "upstream_subject_node")
+parent_builder.add_edge(START, "subject_planner_node")
 parent_builder.add_conditional_edges(
-    "upstream_subject_node",
-    route_after_planner,
+    "subject_planner_node",
+    route_after_subject_planner,
     {
         "extract_subagent": "extract_subagent",
         "update_subagent": "update_subagent",
