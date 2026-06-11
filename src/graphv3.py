@@ -11,7 +11,7 @@ from types import NoneType
 
 import uuid
 
-from state import MainState, ExtractAgentState, UpdateAgentState, UserProfile, UserProfileList, MessageSelectionOutput, PatchProposalList, SubjectBucketList
+from state import MainState, ExtractAgentState, UpdateAgentState, UserProfile, PatchProposalList, SubjectBucketList
 
 load_dotenv()
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -66,136 +66,42 @@ MainState
 class MainState(BaseModel):
     messages: Annotated[list[BaseMessage], add]
     existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
-    plan: MessageSelectionOutput | None = None
+    subjects: SubjectBucketList = Field(default_factory=SubjectBucketList)
 """
 
 # ----------------------------
 # 2. Extract Sub Agent State and nodes
 # ----------------------------
 
-"""
-class ExtractAgentState(MainState):
-    has_create_mismatch: bool = False
-    human_prompt: str | None = None
-"""
-
-def extract_node(state: ExtractAgentState) -> Command[Literal["human", "__end__"]]:
-    """calls a llm with structured output to get fully parsed candidate objects"""
-    # passes state.messages and process these with a tool calling model to get structured output according to a Schema
-    # updates candidate in the state
-    
+def extract_node(state: ExtractAgentState) -> ExtractAgentState:
+    """Extract exactly one new profile from one subject-specific branch."""
     formatted_messages = format_messages(state.messages)
 
     system_prompt = f"""
-Extract structured user profile information from the conversation.
+Extract exactly one UserProfile for the new subject labeled:
+{state.subject.subject_label}
 
 Rules:
+- Use only information about this subject from the supporting messages.
 - Use only information explicitly stated or strongly implied in the messages.
 - Do not guess or invent facts.
 - If a field is unknown, leave it null.
 - For list fields, include only items clearly supported by the conversation.
-- Return output that matches the target schema exactly.
+- Return output that matches the UserProfile schema exactly.
 
-PLANNER INSTRUCTION:
-{state.plan.reasoning_summary_for_create}
-
-TAKE INTO ACCOUNT THESE MESSAGE(S):
+SUPPORTING MESSAGE(S):
 {formatted_messages}
 """
     
-    structured_llm = llm.with_structured_output(UserProfileList)
+    structured_llm = llm.with_structured_output(UserProfile)
     result = structured_llm.invoke([SystemMessage(system_prompt)])
 
-    total_new_person_count = sum([link.new_person_count for link in state.plan.relevant_for_create_links])
-
-    if total_new_person_count != len(result.items):
-        retry_prompt = f"""
-Your previous extraction was incorrect.
-
-The planner expected {total_new_person_count} new people, but you returned {len(result.items)} profiles.
-
-The planner's summary of the create-side meaning is:
-{state.plan.reasoning_summary_for_create}
-
-Re-read the same create-relevant messages and try again.
-
-Return output that matches the UserProfileList schema exactly.
-Return exactly {total_new_person_count} distinct new UserProfile objects.
-Do not guess or invent facts.
-If a field is unknown, leave it null.
-For list fields, include only items clearly supported by the messages.
-
-The create-relevant messages are:
-{formatted_messages}
-"""
-        result = structured_llm.invoke([SystemMessage(retry_prompt)])
-
-    if total_new_person_count != len(result.items):
-        names_text = "\n".join([person.name for person in result.items])
-        human_prompt = f"""
-- The planner thought you should create {total_new_person_count} but the model only created {len(result.items)}
-- The planner also provided this reasoning for create {state.plan.reasoning_summary_for_create} and the model
-extracted only {names_text}. Dear human, please, return in JSON format
-the profiles that the model should have extracted. 
-"""
-        return Command(
-            update={"has_create_mismatch" : True,
-                    "human_prompt": human_prompt,
-                    },
-            goto="human"
-        )
-    else:
-        new = {str(uuid.uuid4()): usr for usr in result.items}
-        return Command(
-            update= {"existing": new},
-            goto = "__end__"
-        )
-    
-def human(state: ExtractAgentState) -> ExtractAgentState:
-    payload = interrupt(state.human_prompt)
-    # Expect resume payload in UserProfileList JSON shape.
-    # Example:
-    # {
-    #   "items": [
-    #     {
-    #       "name": "Lucia Romero",
-    #       "company": None,
-    #       "role": "Startup Lawyer",
-    #       "location": "Lima",
-    #       "interests": [],
-    #     }
-    #   ]
-    # }
-    while True:
-        try:
-            validated_result = UserProfileList.model_validate(payload)
-            break
-        except ValidationError as e:
-            payload = interrupt(
-                {
-                    "message": "The payload did not match the expected UserProfileList JSON shape. Please try again.",
-                    "errors": e.errors(),
-                    "expected_format": {
-                        "items": [
-                            {
-                                "name": "Lucia Romero",
-                                "company": None,
-                                "role": "Startup Lawyer",
-                                "location": "Lima",
-                                "interests": [],
-                            }
-                        ]
-                    },
-                }
-            )
-    new = {str(uuid.uuid4()): usr for usr in validated_result.items}
-    return {"existing" : new}
+    return {"existing": {str(uuid.uuid4()): result}}
 
 extract_builder = StateGraph(ExtractAgentState)
 extract_builder.add_node("extract", extract_node)
-extract_builder.add_node("human", human)
 extract_builder.add_edge(START, "extract")
-extract_builder.add_edge("human", END)
+extract_builder.add_edge("extract", END)
 
 extract_subgraph = extract_builder.compile()
 
@@ -806,95 +712,43 @@ Original task:
     return {"subjects": result}
 
 
-def planner_node(state: MainState) -> MainState:
-    """Plan which messages should create or update user profiles.
-    Use existing profiles and conversation messages to produce structured links.
-    Return the planner result as the state's plan update."""
-    llm_with_structure = llm.with_structured_output(MessageSelectionOutput)
-
-    existing_profiles = state.existing 
-
-    formatted_existing = "\n".join(
-        [
-            f"Obj_id = {k}:\n{format_string_from_user_profile(v)}\n"
-            + "-" * 60
-            + "\n"
-            for k, v in existing_profiles.items()
-        ]
-    )
-
-    formatted_messages = format_messages(state.messages)
-
-    PLANNER_PROMPT = """
-You are a planner for a structured memory extraction system.
-
-Your job is only to decide which human messages are relevant for:
-1. creating or extracting new user profiles
-2. updating existing user profiles
-
-You are not extracting profile fields.
-You are not producing patch operations.
-You are not validating data.
-You are only planning the next actions.
-
-Existing profiles:
-{formatted_existing}
-
-Existing messages:
-{formatted_messages}
-
-Rules:
-- Only return IDs that belong to human messages.
-- Use the IDs exactly as provided.
-- Ignore the system message.
-- Include every human message that contains profile-relevant information.
-- A single human message may be relevant for both creating new profiles and updating existing profiles.
-- A profile should be selected for update even if only one field changes.
-- If a message contains update information, add an item to relevant_for_update_links with the message_id and the correct user_profile_ids.
-- If a message contains create information, add an item to relevant_for_create_links with the message_id and the number of new people mentioned in that message.
-- The same message ID may appear in relevant_for_create_links and also inside relevant_for_update_links.
-- If a message clearly introduces a different person who is not one of the existing profiles, treat that as create-side evidence.
-- Do not map a newly mentioned person onto an existing profile unless the messages provide clear evidence they are the same person.
-- Shared facts such as company, role, or location are not enough by themselves to conclude that a newly named person is actually an existing profile.
-- When in doubt between "update existing" and "create new", prefer create-side selection rather than risking an incorrect overwrite.
-- Use only information explicitly stated or strongly implied in the conversation.
-- Do not guess.
-- Do not invent IDs.
-- Do not invent existing user profile IDs.
-- Only use user_profile_ids that are present in the provided existing profiles.
-- Keep reasoning summaries short, factual, and high level.
-
-Return output that matches the MessageSelectionOutput schema exactly.
-"""
-
-    system_msg = SystemMessage(PLANNER_PROMPT.format(formatted_existing=formatted_existing, formatted_messages=formatted_messages))
-
-    result = llm_with_structure.invoke([system_msg, *state.messages])
-
-    return {"plan": result}
-
 def run_extract_subgagent(state: MainState) -> MainState:
-    state_plan = state["plan"] if isinstance(state, dict) else state.plan
+    """Run one extraction branch and return a partial parent-state update."""
+    state_subject = state["subject"] if isinstance(state, dict) else state.subject
     state_messages = state["messages"] if isinstance(state, dict) else state.messages
-    # unpack the message ids from CreateLink object into a list of message ids
-    relevant_message_ids = [link.message_id for link in state_plan.relevant_for_create_links]
 
-    relevant_messages = [msg for msg in state_messages if msg.id in relevant_message_ids]
-
-    updated_plan = MessageSelectionOutput(
-                                    reasoning_summary_for_update = "",
-                                    relevant_for_update_links = [],
-                                    reasoning_summary_for_create = state_plan.reasoning_summary_for_create,
-                                    relevant_for_create_links = state_plan.relevant_for_create_links
-                                    )
-
-    sub_state = {"plan" : updated_plan,
-                 "messages" : relevant_messages,
-                 "existing" :{}}
+    sub_state = {
+        "subject": state_subject,
+        "messages": state_messages,
+    }
     result = extract_subgraph.invoke(sub_state)
     return {
         "existing": result["existing"]
     }
+
+def fan_out_creates(state: MainState) -> list[Send]:
+    """Create one extraction branch for each new-classified subject bucket."""
+    sends = []
+
+    for subject in state.subjects.items:
+        if subject.classification != "new":
+            continue
+
+        sends.append(
+            Send(
+                "extract_subagent",
+                {
+                    "subject": subject,
+                    "messages": [
+                        message
+                        for message in state.messages
+                        if message.id in subject.message_ids
+                    ],
+                },
+            )
+        )
+
+    return sends
 
 def fan_out_updates(state: MainState) -> list[Send]:
     """Create one update branch for each existing-classified subject bucket."""
@@ -940,29 +794,25 @@ def run_update_subgagent(state: MainState | dict) -> MainState:
 
 
 def route_after_planner(state: MainState) -> list[Literal["extract_subagent", "__end__"] | Send]:
-    destinations = []
+    destinations = [
+        *fan_out_creates(state),
+        *fan_out_updates(state),
+    ]
 
-    if state.plan.relevant_for_create_links:
-        destinations.append("extract_subagent")
-    if any(subject.classification == "existing" for subject in state.subjects.items):
-        destinations.extend(fan_out_updates(state))
     if not destinations:
         return ["__end__"]
-    else: 
-        return destinations
+    return destinations
 
 parent_builder = StateGraph(MainState)
 
 parent_builder.add_node("upstream_subject_node", upstream_subject_node)
-parent_builder.add_node("planner", planner_node)
 parent_builder.add_node("extract_subagent", run_extract_subgagent)
 parent_builder.add_node("update_subagent", run_update_subgagent)
 
 
 parent_builder.add_edge(START, "upstream_subject_node")
-parent_builder.add_edge("upstream_subject_node", "planner")
 parent_builder.add_conditional_edges(
-    "planner",
+    "upstream_subject_node",
     route_after_planner,
     {
         "extract_subagent": "extract_subagent",
