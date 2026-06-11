@@ -2318,3 +2318,52 @@ Future reference commit:
 b9fa4821f3072ab6be770ff6edd988c2ce074c53
 Migrate update fanout to subject buckets
 ```
+
+## 📅 Log Entry: June 10th, 2026 - Entry 2: New-Subject Create Path Migrated
+
+Step 5 of `SHORT_TERM_PLAN3v4.md` migrated the parent graph's create path from
+the old planner architecture to `SubjectBucketList`.
+
+`fan_out_creates(...)` now reads new-classified subject buckets directly from
+`state.subjects`. Each bucket creates one `Send("extract_subagent", ...)`
+containing exactly one subject and only the messages that support that subject.
+Multiple supporting messages no longer cause multiple extraction branches for
+the same person.
+
+The extraction branch was redesigned around this one-subject contract:
+
+- `ExtractAgentState` now carries one subject bucket, its supporting messages,
+  and the newly created profile output.
+- `run_extract_subgagent(...)` translates the parent branch state into the
+  narrower extract-subgraph input and returns a partial parent-state update.
+- `extract_node(...)` asks for exactly one `UserProfile` for the supplied
+  subject instead of extracting a batch of profiles.
+- The old create-count mismatch, retry, and human-interrupt flow was removed
+  because each extraction branch now represents exactly one detected subject.
+- Created profiles continue returning through the parent `existing` field so
+  `merge_profiles(...)` can combine parallel create and update results.
+
+The parent graph now routes both new and existing subject buckets directly
+after `upstream_subject_node(...)`. The old `planner_node(...)`,
+`MainState.plan`, `CreateLink`, `UpdateLink`, `MessageSelectionOutput`, and
+batch-oriented `UserProfileList` schema were removed because
+`SubjectBucketList` now provides the routing information they duplicated.
+
+Tests tied specifically to the removed planner, batch extraction, old create
+human flow, and previous parent integration contracts were deleted. They must
+be replaced with focused Step 5 tests covering create fanout, the extraction
+wrapper and subgraph, and parent create/update routing. No replacement tests
+were written or run before this commit so the implementation could be preserved
+as a clear checkpoint before test development begins.
+
+Future reference commit:
+
+```text
+2ab3eea
+Migrate create path to subject bucket fanout
+```
+
+### Next Step
+
+Build and review the focused Step 5 replacement tests before continuing the
+remaining roadmap cleanup.
