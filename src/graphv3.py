@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command, Send, interrupt
 from pydantic import ValidationError
 from typing import Literal, Sequence, get_origin, get_args, Union
-from types import NoneType
+from types import NoneType, UnionType
 
 import uuid
 
@@ -38,7 +38,7 @@ Examples:
     if origin is None:
         return getattr(annotation, "__name__", str(annotation))
 
-    if origin is Union and NoneType in args:
+    if origin in (Union, UnionType) and NoneType in args:
         non_none_args = [arg for arg in args if arg is not NoneType]
         if len(non_none_args) == 1:
             return f"Optional[{annotation_to_text(non_none_args[0])}]"
