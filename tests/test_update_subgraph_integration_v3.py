@@ -26,7 +26,6 @@ def build_state() -> UpdateAgentState:
                 interests=["metals"],
             )
         },
-        reasoning_summary_for_update="Philip de Haas has an interest update.",
     )
 
 
@@ -107,5 +106,41 @@ def test_update_subgraph_retries_once_then_commits_successfully():
         assert isinstance(updated_profile, UserProfile)
         assert updated_profile.interests == ["metals", "AI hiring"]
         assert updated_profile.location == "London"
+    finally:
+        graphv3.llm = original_llm
+
+
+def test_update_subgraph_empty_patch_list_commits_unchanged_profile():
+    original_profile = UserProfile(
+        name="Philip de Haas",
+        company="London Metals Limited",
+        role="Owner",
+        location="London",
+        interests=["metals"],
+    )
+    state = UpdateAgentState(
+        messages=[
+            HumanMessage(
+                id="hm_001",
+                content="I spoke with Philip de Haas yesterday.",
+            )
+        ],
+        existing={"user_001": original_profile},
+    )
+    fake_llm = FakeLLM([PatchProposalList()])
+    original_llm = graphv3.llm
+    graphv3.llm = fake_llm
+
+    try:
+        result = graphv3.update_subgraph.invoke(state)
+
+        assert fake_llm.structured_calls == [PatchProposalList]
+        assert len(fake_llm.fake_structured_llm.calls) == 1
+        assert set(result["existing"]) == {"user_001"}
+        assert result["existing"]["user_001"] == original_profile
+        assert result["patches"] == []
+        assert result["candidate"] == {"user_001": original_profile.model_dump()}
+        assert result["errors"] == {}
+        assert result["attempts"] == 0
     finally:
         graphv3.llm = original_llm

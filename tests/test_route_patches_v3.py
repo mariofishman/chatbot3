@@ -11,7 +11,6 @@ def build_state() -> UpdateAgentState:
     return UpdateAgentState(
         messages=[],
         existing={},
-        reasoning_summary_for_update="",
     )
 
 

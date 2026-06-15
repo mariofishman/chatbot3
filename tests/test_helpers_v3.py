@@ -52,7 +52,7 @@ def test_format_string_from_schema_contains_field_descriptions_and_types():
 
     assert "name:" in result
     assert "User's full name" in result
-    assert "type of this field: str" in result
+    assert "type of this field: Optional[str]" in result
     assert "company:" in result
     assert "Company the user works at" in result
     assert "type of this field: Optional[str]" in result

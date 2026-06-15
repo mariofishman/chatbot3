@@ -294,6 +294,71 @@ def test_checkpointed_second_turn_adds_only_new_message_without_duplicates(monke
     ]
 
 
+def test_checkpointed_later_subjects_replace_earlier_subjects(monkeypatch):
+    first_result = SubjectBucketList(items=[new_subject("Lucia", ["hm_001"])])
+    second_result = SubjectBucketList(items=[new_subject("John", ["hm_002"])])
+    install_fake_llm(monkeypatch, first_result, second_result)
+    builder = StateGraph(MainState)
+    builder.add_node("subjects", graphv3.subject_planner_node)
+    builder.add_edge(START, "subjects")
+    builder.add_edge("subjects", END)
+    graph = builder.compile(checkpointer=InMemorySaver())
+    config = {"configurable": {"thread_id": "upstream-subject-replacement"}}
+
+    graph.invoke(
+        {"messages": [HumanMessage(id="hm_001", content="I met Lucia.")]},
+        config=config,
+    )
+    first_snapshot = graph.get_state(config)
+    assert first_snapshot.values["subjects"] == first_result
+
+    graph.invoke(
+        {"messages": [HumanMessage(id="hm_002", content="I met John.")]},
+        config=config,
+    )
+
+    snapshot = graph.get_state(config)
+    assert snapshot.values["subjects"] == second_result
+    assert [message.id for message in snapshot.values["messages"]] == [
+        "hm_001",
+        "hm_002",
+    ]
+
+
+def test_checkpointed_empty_later_output_clears_earlier_subjects(monkeypatch):
+    first_result = SubjectBucketList(items=[new_subject("Lucia", ["hm_001"])])
+    empty_result = SubjectBucketList()
+    fake_llm = install_fake_llm(monkeypatch, first_result, empty_result)
+    builder = StateGraph(MainState)
+    builder.add_node("subjects", graphv3.subject_planner_node)
+    builder.add_edge(START, "subjects")
+    builder.add_edge("subjects", END)
+    graph = builder.compile(checkpointer=InMemorySaver())
+    config = {"configurable": {"thread_id": "upstream-subject-empty-replacement"}}
+
+    graph.invoke(
+        {"messages": [HumanMessage(id="hm_001", content="I met Lucia.")]},
+        config=config,
+    )
+    first_snapshot = graph.get_state(config)
+    assert first_snapshot.values["subjects"] == first_result
+
+    graph.invoke(
+        {"messages": [HumanMessage(id="hm_002", content="The weather is pleasant.")]},
+        config=config,
+    )
+
+    snapshot = graph.get_state(config)
+    assert snapshot.values["subjects"] == empty_result
+    assert [message.id for message in snapshot.values["messages"]] == [
+        "hm_001",
+        "hm_002",
+    ]
+    second_prompt = fake_llm.fake_structured_llm.calls[1][0].content
+    assert second_prompt.count("id: hm_001") == 1
+    assert second_prompt.count("id: hm_002") == 1
+
+
 def test_later_pass_can_reclassify_previously_new_person_as_existing(monkeypatch):
     first_result = SubjectBucketList(items=[new_subject("Lucia", ["hm_001"])])
     second_result = SubjectBucketList(

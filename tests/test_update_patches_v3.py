@@ -17,13 +17,13 @@ from state import PatchOp, PatchProposal, PatchProposalList, UpdateAgentState, U
 # - apply_patch()
 # - Send fan-out
 # - wrappers
-# - unfinished update-subgraph nodes
+# - downstream update-subgraph nodes
 #
 # It verifies that update_patches():
 # - enforces the one-profile contract
 # - calls the structured-output LLM path for a valid one-profile state
 # - stores the returned PatchProposalList.items into patches
-# - includes the target profile and supporting summary in the prompt
+# - includes the target profile and supporting messages in the prompt
 
 
 def build_valid_state() -> UpdateAgentState:
@@ -43,9 +43,6 @@ def build_valid_state() -> UpdateAgentState:
                 interests=["metals"],
             )
         },
-        reasoning_summary_for_update=(
-            "Philip de Haas has location and interest updates. Other users may also appear in the general summary."
-        ),
     )
 
 
@@ -98,9 +95,9 @@ def test_update_patches_happy_path():
         assert isinstance(sent_messages[0], SystemMessage)
         prompt = sent_messages[0].content
         assert "TARGET EXISTING PROFILE:" in prompt
-        assert "SUPPORTING UPDATE SUMMARY:" in prompt
+        assert "RELEVANT MESSAGE(S) FOR THIS PROFILE:" in prompt
         assert "Philip de Haas" in prompt
-        assert state.reasoning_summary_for_update in prompt
+        assert "Philip de Haas now lives in Zurich and is interested in AI hiring." in prompt
         assert "patches" in result
         assert result["patches"] == fake_result.items
     finally:

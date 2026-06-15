@@ -21,7 +21,6 @@ def build_state() -> UpdateAgentState:
                 interests=["metals"],
             )
         },
-        reasoning_summary_for_update="Philip de Haas has update-side changes.",
         candidate={
             "user_001": {
                 "name": "Philip de Haas",

@@ -13,7 +13,6 @@ def build_state() -> UpdateAgentState:
     return UpdateAgentState(
         messages=[],
         existing={},
-        reasoning_summary_for_update="",
         candidate={
             "user_001": {
                 "name": "Philip de Haas",

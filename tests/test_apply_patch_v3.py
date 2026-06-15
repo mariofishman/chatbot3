@@ -11,7 +11,7 @@ from state import PatchOp, PatchProposal, UpdateAgentState, UserProfile
 # This file tests only the deterministic apply_patch() step.
 #
 # It does NOT test:
-# - planner behavior
+# - subject-planner or fanout behavior
 # - Send fan-out
 # - update_patches() LLM output generation
 # - validate/patch/commit
@@ -35,7 +35,6 @@ def build_state() -> UpdateAgentState:
                 interests=["metals", "finance"],
             )
         },
-        reasoning_summary_for_update="Philip de Haas has location and interest updates.",
         patches=[
             PatchProposal(
                 target_id="user_001",
