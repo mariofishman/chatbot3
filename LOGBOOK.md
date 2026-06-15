@@ -2385,3 +2385,59 @@ Finalize subject-planner naming and runner output
 
 The implementation roadmap is now ready to move into focused fanout, wrapper,
 and parent integration testing.
+
+## 📅 Log Entry: June 13th–14th, 2026 - Part 3 Deterministic Test Expansion
+
+The June 11 entry left the newly migrated subject-planner, fanout, wrapper, and
+parent-routing implementation ready for focused testing. Over the weekend, the
+missing deterministic coverage was organized and built through Test 9 of the
+new Part 3 Test MacroPlan.
+
+The testing work began with a broad edge-case inventory and an executable
+MacroPlan. Each test workflow received a focused microplan, review pass,
+implementation, focused run, and full-suite regression run before advancing.
+
+Existing tests were reviewed and aligned with the current graph and state
+contracts. Coverage was extended for:
+
+- checkpointed subject-planner replacement and no-subject later turns
+- reducer behavior across several create slices and mixed create/update slices
+- empty update patch lists completing as valid no-op updates
+
+Six focused test files were added:
+
+- `test_subject_fanout_v3.py` verifies no-subject, create, update, mixed,
+  multi-message, shared-message, filtering, and message-order routing
+- `test_extract_branch_v3.py` verifies named, sparse, and unnamed extraction,
+  subject-specific prompts, wrapper contracts, and routed payload shape
+- `test_update_parent_branch_v3.py` verifies routed one-profile updates,
+  supporting-message filtering, no-op updates, and wrapper contracts
+- `test_parent_subject_routing_integration_v3.py` verifies complete no-subject,
+  create-only, update-only, and mixed parent runs with parallel merge-back
+- `test_parent_multiturn_integration_v3.py` verifies checkpointed creation,
+  later updates and corrections, unique accumulated messages, and thread
+  isolation
+- `test_parallel_update_repair_integration_v3.py` verifies parallel successful,
+  model-repaired, and human-repaired updates, including several interrupts
+  resumed one at a time by interrupt ID
+
+The parallel repair tests confirmed that completed sibling branch work is
+preserved while other branches remain interrupted, and that repaired branches
+can be resumed individually without losing successful sibling updates.
+
+Test 9 completed with:
+
+```text
+Focused parallel-repair file: 3 passed
+Full suite: 95 passed
+```
+
+Tests 10 and 11 remain intentionally unstarted. Their coverage and workflow
+placeholders remain in the MacroPlan for later work.
+
+Future reference commit:
+
+```text
+1752e9cbeaa3a0bc3aa014b4072a75fcc907d41c
+test(part3): expand deterministic fanout and integration coverage
+```
