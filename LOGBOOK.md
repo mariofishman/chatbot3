@@ -2441,3 +2441,30 @@ Future reference commit:
 1752e9cbeaa3a0bc3aa014b4072a75fcc907d41c
 test(part3): expand deterministic fanout and integration coverage
 ```
+
+## 📅 Log Entry: June 14th, 2026 - Entry 2: Extract-Subgraph Recovery Decision
+
+While preparing Test 10, which was intended to define and test create-side
+failure behavior, we reviewed the current extraction policy and found that it
+was not suitable to preserve as a stable contract.
+
+The current `extract_subgraph` performs one structured `UserProfile` extraction
+and immediately commits the result. If extraction fails or returns unusable
+output, the exception propagates and the create branch has no recovery path,
+human fallback, or separate boundary between extraction and commit.
+
+We decided to upgrade the create branch before writing Test 10:
+
+- `extract_node(...)` will attempt extraction normally and retry once with the
+  latest extraction error
+- if both model attempts fail, the branch will interrupt for human repair
+- the human will provide one complete valid `UserProfile`
+- profile UUID generation and insertion into `existing` will happen only in a
+  separate commit node after a valid candidate exists
+- unexpected programming or infrastructure errors will continue to propagate
+  rather than being hidden as repairable extraction failures
+
+This decision postpones Test 10 until the new recovery policy is implemented.
+The executable roadmap is recorded in:
+
+- `SHORT_TERM_PLANS/SHORT_TERM_PLAN3v5.md`
