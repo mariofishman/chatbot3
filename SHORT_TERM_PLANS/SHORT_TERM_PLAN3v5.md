@@ -11,14 +11,28 @@ completed in Part 3 remain in place. This plan changes only what happens inside
 each create branch after one new `SubjectBucket` and its supporting messages
 reach `extract_subgraph`.
 
-## Problem
+## Status
 
-The current create branch performs one structured `UserProfile` extraction and
-immediately commits it under a generated UUID.
+This roadmap is complete.
 
-If extraction fails, the exception stops the branch. The create branch has no
-deliberate model retry, human-repair interrupt, or separate commit boundary.
-Test 10 cannot freeze a useful create-failure policy until that behavior is
+The create-recovery work in Steps 1-7 and the update-side parity work in Steps
+8-10 have been implemented and covered by the completed Part 3 recovery-test
+adaptation queue in `microplans/PART3_TEST_MACROPLAN.md`.
+
+Reference commits:
+
+- `a2ff811c9ef3885ad69ebee503dbed48e22e21ef`: recovery refactor for create
+  and update branches
+- `5915446`: recovery and defensive testing expansion
+
+## Original Problem
+
+The old create branch performed one structured `UserProfile` extraction and
+immediately committed it under a generated UUID.
+
+If extraction failed, the exception stopped the branch. The create branch had
+no deliberate model retry, human-repair interrupt, or separate commit boundary.
+Test 10 could not freeze a useful create-failure policy until that behavior was
 defined and implemented.
 
 ## Chosen Create-Recovery Contract
@@ -263,43 +277,47 @@ Review both recovery paths together:
 
 ### Step 11: Review Every Part 3 Macroplan Test
 
-Review all eleven workflows below before completing Test 10. Preserve relevant
-existing assertions and change only tests whose contracts are affected.
+Completed.
 
-Before editing any previously completed test file, write and review a narrow
-extension microplan for that file. Record the new focused and full-suite
-results without erasing its earlier completion history.
+All eleven workflows were reviewed before closing the Part 3 recovery-test
+adaptation queue. Relevant existing assertions were preserved and only tests
+whose contracts were affected were changed.
+
+Before editing previously completed test files, narrow extension microplans
+were written and reviewed. New focused and full-suite results were recorded in
+`microplans/PART3_TEST_MACROPLAN.md` without erasing earlier completion
+history.
 
 #### Test 1: `tests/test_upstream_subject_node_v3.py`
 
-Expected action: run unchanged.
+Completed action: run unchanged.
 
 Reason: subject detection and classification happen before extraction recovery.
 
 #### Test 2: `tests/test_state_reducers_v3.py`
 
-Expected action: review and run unchanged.
+Completed action: reviewed and run unchanged.
 
 Reason: the reducer still receives only fully committed profile dictionaries.
 Confirm that candidates never reach this reducer before commit.
 
 #### Test 3: `tests/test_update_subgraph_integration_v3.py`
 
-Expected action: review and extend if needed.
+Completed action: reviewed and extended.
 
 Preserve successful and no-op update behavior. Confirm a declined or invalid
 human response ends without returning a changed committed profile.
 
 #### Test 4: `tests/test_subject_fanout_v3.py`
 
-Expected action: review and run unchanged.
+Completed action: reviewed and run unchanged.
 
 Reason: `fan_out_creates(...)` must continue sending one subject and its
 supporting messages; recovery is internal to the extract subgraph.
 
 #### Test 5: `tests/test_extract_branch_v3.py`
 
-Expected action: substantially extend and adapt.
+Completed action: substantially extended and adapted.
 
 Preserve current happy-path coverage, then cover:
 
@@ -317,14 +335,14 @@ output and instead assert the candidate/error contract.
 
 #### Test 6: `tests/test_update_parent_branch_v3.py`
 
-Expected action: review and adapt only if update decline behavior affects the
+Completed action: reviewed and adapted because update decline behavior affects the
 wrapper result.
 
 Confirm a declined update branch leaves the parent profile unchanged.
 
 #### Test 7: `tests/test_parent_subject_routing_integration_v3.py`
 
-Expected action: review and adapt its deterministic fake only as needed for the
+Completed action: reviewed and adapted its deterministic fake only as needed for the
 additional extraction calls.
 
 Preserve all no-subject, create-only, update-only, and mixed happy paths.
@@ -333,7 +351,7 @@ branches. Do not duplicate detailed create-repair coverage assigned to Test 10.
 
 #### Test 8: `tests/test_parent_multiturn_integration_v3.py`
 
-Expected action: review and adapt its deterministic fake only as needed.
+Completed action: reviewed and adapted its deterministic fake only as needed.
 
 Preserve all existing multi-turn behavior. Confirm that committed create IDs
 remain stable for later updates and that temporary create candidates/errors do
@@ -341,7 +359,7 @@ not leak into parent checkpointed state.
 
 #### Test 9: `tests/test_parallel_update_repair_integration_v3.py`
 
-Expected action: substantially extend and adapt.
+Completed action: substantially extended and adapted.
 
 Preserve existing successful and valid-human-repair behavior, adapted to the
 new action envelope. Add coverage for:
@@ -354,7 +372,7 @@ new action envelope. Add coverage for:
 
 #### Test 10: `tests/test_create_failure_policy_v3.py`
 
-Expected action: replace the stale fail-fast microplan, then create the test
+Completed action: replaced the stale fail-fast microplan, then created the test
 file around the new policy.
 
 Required integration coverage:
@@ -375,38 +393,42 @@ Required integration coverage:
 
 #### Test 11: `tests/test_defensive_duplicate_branch_boundaries_v3.py`
 
-Expected action: review its future microplan after create recovery is stable.
+Completed action: reviewed and implemented after create recovery was stable.
 
-Keep duplicate-bucket policy separate from recovery policy. Add create-repair
-boundary cases only if duplicate/conflicting branches introduce behavior not
-already covered by Tests 5 and 10.
+Duplicate-bucket policy remained separate from recovery policy. The completed
+test freezes only the safe current policy: duplicate existing buckets with the
+same `candidate_existing_id` are merged inside `subject_planner_node(...)`
+before fanout. Duplicate new-label ambiguity remains deferred to future
+persistence-backed identity resolution.
 
 Also review these focused update-side files even though they are not separate
 numbered MacroPlan workflows:
 
-- `tests/test_human_repair_v3.py`: substantially rewrite around the one-time
+- `tests/test_human_repair_v3.py`: substantially rewritten around the one-time
   action envelope and post-human routing
-- `tests/test_route_patches_v3.py`: confirm routing into human repair remains
+- `tests/test_route_patches_v3.py`: confirmed routing into human repair remains
   unchanged
 - `tests/test_patch_v3.py`, `tests/test_validate_v3.py`, and
   `tests/test_commit_v3.py`: run unchanged to guard the automated update loop
 
 ### Step 12: Update Supporting Test Plans
 
-After production behavior is stable:
+Completed after production behavior stabilized:
 
-- rewrite `microplans/TEST_CREATE_FAILURE_POLICY_V3_MICROPLAN.md`
-- update Test 10 coverage and progress in
+- rewrote `microplans/TEST_CREATE_FAILURE_POLICY_V3_MICROPLAN.md`
+- updated Test 10 and Test 11 coverage and progress in
   `microplans/PART3_TEST_MACROPLAN.md`
-- update stale create-failure statements in
+- updated stale create-failure and duplicate-boundary statements in
   `microplans/PART3_FANOUT_WRAPPER_INTEGRATION_EDGE_CASES.md`
 
-Do not erase historical completed-test records. Clearly distinguish tests that
-were reviewed unchanged from tests that were adapted.
+Historical completed-test records were preserved. Tests reviewed unchanged were
+kept distinct from tests that were adapted.
 
 ### Step 13: Run Regression Gates
 
-Run affected focused files first:
+Completed.
+
+Affected focused files were run first:
 
 1. `tests/test_extract_branch_v3.py`
 2. `tests/test_human_repair_v3.py`
@@ -416,9 +438,10 @@ Run affected focused files first:
 6. `tests/test_parent_subject_routing_integration_v3.py`
 7. `tests/test_parent_multiturn_integration_v3.py`
 
-Then run every currently implemented Part 3 macroplan test and the complete
-test suite. Test 11 remains a separate unfinished workflow and should be built
-after this create-recovery migration unless its scope is deliberately changed.
+Then every currently implemented Part 3 macroplan test and the complete test
+suite were run through the macroplan workflow. Test 11 was built after the
+create-recovery migration and now closes the defensive duplicate-boundary
+queue.
 
 ## Do Not Break
 
@@ -444,9 +467,10 @@ This plan is complete when:
 - [x] update human repair interrupts once and uses the submit/decline envelope
 - [x] invalid or declined update human repair ends without changing the profile
       or interrupting again
-- [ ] every currently implemented Part 3 MacroPlan test has been reviewed and
+- [x] every currently implemented Part 3 MacroPlan test has been reviewed and
       run
-- [ ] Tests 3, 5, 6, 7, 8, 9, and 10 are adapted where required
-- [x] Test 11's future microplan has been checked for create-recovery impact
-- [ ] focused tests and the full suite pass
-- [ ] the MacroPlan and edge-case documentation describe the implemented policy
+- [x] Tests 3, 5, 6, 7, 8, 9, and 10 are adapted where required
+- [x] Test 11's microplan has been checked, updated, and implemented after
+      create recovery stabilized
+- [x] focused tests and the full suite pass
+- [x] the MacroPlan and edge-case documentation describe the implemented policy
