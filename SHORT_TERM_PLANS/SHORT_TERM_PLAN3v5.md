@@ -32,15 +32,19 @@ Each extraction branch processes exactly one new subject.
 3. A valid first or second result becomes `state.candidate`.
 4. If the second attempt also fails, the branch records the latest expected
    extraction errors and routes to `human_create_repair(...)`.
-5. The human supplies one complete valid `UserProfile`, not JSON patches.
-6. `commit_created_profile(...)` generates the UUID and returns the committed
+5. The human responds through an explicit action envelope:
+   - `{"action": "submit", "profile": {...}}`
+   - `{"action": "decline"}`
+6. A valid response routes to commit. An invalid, missing, or declined response
+   ends the branch without creating a profile.
+7. `commit_created_profile(...)` generates the UUID and returns the committed
    profile through `state.existing`.
 
-There is no automated extraction graph loop and no `attempts` field. The only
-loop is local input validation inside `human_create_repair(...)`, allowing an
-invalid human response to be corrected. Unexpected programming or
-infrastructure errors must still propagate rather than being misrepresented as
-repairable profile-validation errors.
+There is no automated extraction graph loop, no human-repair loop, and no
+`attempts` field. Human repair interrupts once. If the human cannot provide one
+valid profile, the create branch ends without creating a profile. Unexpected
+programming or infrastructure errors must still propagate rather than being
+misrepresented as repairable profile-validation errors.
 
 ## Desired State Contract
 
@@ -55,6 +59,8 @@ Refactor `ExtractAgentState` to carry:
 Important invariants:
 
 - a valid sparse `UserProfile` is a successful candidate
+- a profile with no meaningful field values is unusable and follows the
+  extraction-error or no-create path
 - an extraction attempt must never generate or commit a UUID
 - `errors` must be empty whenever a valid candidate is routed to commit
 - `existing` must remain empty until commit
@@ -67,7 +73,7 @@ START -> extract_node -> route_extraction
                            | valid candidate -> commit_created_profile -> END
                            | errors -> human_create_repair
                                       | valid human profile -> commit_created_profile -> END
-                                      | invalid human profile -> interrupt again
+                                      | invalid or declined response -> END
 ```
 
 ## Execution Roadmap
@@ -86,7 +92,8 @@ Document that boundary beside the implementation:
   repair
 - missing, `None`, or otherwise unusable structured output is treated as an
   expected extraction failure rather than as an empty successful candidate
-- invalid human repair input interrupts again with validation feedback
+- invalid, missing, or declined human repair input ends the create branch
+  without creating a profile
 - unrelated programming and infrastructure failures propagate
 
 This prevents a broad `except Exception` from hiding real defects.
@@ -127,22 +134,29 @@ nor errors, or both simultaneously.
 
 ### Step 5: Add `human_create_repair(...)`
 
-Interrupt with a concise payload containing:
+Interrupt once with a concise payload containing:
 
 - the subject label
 - a formatted, serializable representation of the supporting messages
 - the latest extraction errors
-- instructions to provide one complete `UserProfile`
+- instructions and examples for the explicit response envelope:
+  - `{"action": "submit", "profile": {...}}`
+  - `{"action": "decline"}`
 
-Validate the resumed value as a `UserProfile`.
+Inspect the resumed response envelope before validating a profile.
 
-- valid input becomes `candidate` and clears `errors`
-- invalid input interrupts again with useful validation feedback
+- `action="submit"` with a valid profile becomes `candidate` and clears
+  `errors`
+- `action="submit"` with an invalid or missing profile returns no candidate and
+  preserves useful failure information
+- `action="decline"`, an unknown action, or a missing action returns no
+  candidate and preserves a concise reason
+- the branch must then route to `END` without committing a profile
 
 Do not ask the human for JSON patches and do not generate a UUID here.
 Because LangGraph re-executes an interrupted node from its beginning, keep all
-work before `interrupt(...)` free of non-idempotent side effects. The local
-human-input validation loop is not an automated model-extraction retry loop.
+work before `interrupt(...)` free of non-idempotent side effects. Do not call a
+second interrupt from this node.
 
 ### Step 6: Add `commit_created_profile(...)`
 
@@ -161,6 +175,16 @@ create and update branch slices.
 
 Rebuild `extract_subgraph` with the new nodes and conditional route.
 
+Add routing after `human_create_repair(...)`:
+
+- a valid human candidate routes to `commit_created_profile`
+- any response that leaves no candidate routes directly to `END`, whether or
+  not an explanatory error was recorded
+
+Use a separate post-human routing function. Do not reuse `route_extraction(...)`
+because extraction errors with no candidate route to human repair, while the
+same state shape after an unsuccessful human response must route to `END`.
+
 Review `run_extract_subgagent(...)`, `fan_out_creates(...)`, and
 `route_after_subject_planner(...)` without changing their established parent
 contracts:
@@ -170,7 +194,74 @@ contracts:
 - the wrapper returns only the committed partial parent `existing` update
 - create and update branches may still run in parallel
 
-### Step 8: Review Every Part 3 Macroplan Test
+### Step 8: Define Update-Side Human Response Parity
+
+Adopt the same one-interrupt UX for `update_subgraph.human_repair(...)`.
+
+The human response envelope is:
+
+- submit corrective patches:
+  `{"action": "submit", "patches": {"items": [...]}}`
+- decline the update: `{"action": "decline"}`
+
+The update-side policy must be:
+
+- interrupt exactly once after automated patch repair attempts are exhausted
+- valid submitted patches continue through `apply_patch(...)`, validation, and
+  commit
+- declined, malformed, missing-action, or invalid submitted patches end the
+  update branch without changing the existing profile
+- no second human interrupt occurs
+- the branch preserves a concise reason for an unsuccessful human response
+
+Keep the automated update retry loop unchanged. This step changes only the
+human-repair UX after the automated retry limit.
+
+### Step 9: Refactor Update Human Repair And Routing
+
+Refactor `human_repair(...)`:
+
+- replace the raw `PatchProposalList` response with the explicit action
+  envelope
+- inspect `action` before validating submitted patches
+- for `action="submit"`, validate `payload["patches"]` as `PatchProposalList`
+- require at least one proposal and require every proposal to target the
+  current user ID
+- return valid patches with cleared errors
+- return no patches and preserve a concise reason for decline, malformed
+  envelopes, missing/unknown actions, or invalid submitted patches
+- remove the current repeated-interrupt validation loop
+
+Add a separate post-human update router:
+
+- valid submitted patches route to `apply_patch(...)`
+- every no-patches human outcome routes directly to `END`
+- contradictory state fails clearly
+
+Rewire `update_subgraph` so `human_repair(...)` uses this post-human router
+instead of its unconditional edge to `apply_patch(...)`.
+
+When a human update is declined or unusable, the branch must end without
+returning a changed `existing` slice. The parent therefore keeps the original
+profile unchanged.
+
+### Step 10: Review Create And Update Recovery Code
+
+Review both recovery paths together:
+
+- create and update human repair each interrupt once
+- both use explicit submit/decline envelopes
+- invalid, missing, malformed, unknown-action, and declined responses end
+  without committing changes
+- valid create submissions commit one profile
+- valid update submissions continue through deterministic application,
+  validation, and commit
+- all work before each interrupt is idempotent
+- create UUID generation remains commit-only
+- update automated retry, validation, and commit behavior before human repair
+  remains unchanged
+
+### Step 11: Review Every Part 3 Macroplan Test
 
 Review all eleven workflows below before completing Test 10. Preserve relevant
 existing assertions and change only tests whose contracts are affected.
@@ -194,9 +285,10 @@ Confirm that candidates never reach this reducer before commit.
 
 #### Test 3: `tests/test_update_subgraph_integration_v3.py`
 
-Expected action: run unchanged.
+Expected action: review and extend if needed.
 
-Reason: create recovery must not alter update-subgraph behavior.
+Preserve successful and no-op update behavior. Confirm a declined or invalid
+human response ends without returning a changed committed profile.
 
 #### Test 4: `tests/test_subject_fanout_v3.py`
 
@@ -216,7 +308,7 @@ Preserve current happy-path coverage, then cover:
 - first expected failure followed by successful model retry
 - two expected failures route to human repair
 - valid human repair commits once
-- invalid human repair input interrupts again
+- invalid or declined human repair ends without creating a profile
 - UUID is absent before commit and generated only after a valid candidate
 - wrapper still returns only committed partial parent `existing`
 
@@ -225,9 +317,10 @@ output and instead assert the candidate/error contract.
 
 #### Test 6: `tests/test_update_parent_branch_v3.py`
 
-Expected action: run unchanged.
+Expected action: review and adapt only if update decline behavior affects the
+wrapper result.
 
-Reason: the update wrapper and update subgraph are outside this refactor.
+Confirm a declined update branch leaves the parent profile unchanged.
 
 #### Test 7: `tests/test_parent_subject_routing_integration_v3.py`
 
@@ -248,10 +341,16 @@ not leak into parent checkpointed state.
 
 #### Test 9: `tests/test_parallel_update_repair_integration_v3.py`
 
-Expected action: run unchanged.
+Expected action: substantially extend and adapt.
 
-Reason: this is update-only coverage. Reuse its interrupt-ID and one-at-a-time
-resume patterns when designing parallel create-repair tests.
+Preserve existing successful and valid-human-repair behavior, adapted to the
+new action envelope. Add coverage for:
+
+- one interrupted update declines while successful siblings are preserved
+- several interrupted updates receive mixed submit and decline responses one
+  at a time by interrupt ID
+- declined branches leave their original profiles unchanged
+- no invalid or declined update response interrupts again
 
 #### Test 10: `tests/test_create_failure_policy_v3.py`
 
@@ -264,7 +363,8 @@ Required integration coverage:
 - first extraction fails and second model attempt succeeds
 - both model attempts fail and produce one human interrupt
 - valid human response resumes and commits
-- invalid human response interrupts again
+- invalid or declined human response ends that create branch without another
+  interrupt or committed profile
 - one create branch needs human repair while successful create/update siblings
   remain preserved as pending sibling work
 - several create branches interrupt and resume one at a time by interrupt ID
@@ -281,7 +381,17 @@ Keep duplicate-bucket policy separate from recovery policy. Add create-repair
 boundary cases only if duplicate/conflicting branches introduce behavior not
 already covered by Tests 5 and 10.
 
-### Step 9: Update Supporting Test Plans
+Also review these focused update-side files even though they are not separate
+numbered MacroPlan workflows:
+
+- `tests/test_human_repair_v3.py`: substantially rewrite around the one-time
+  action envelope and post-human routing
+- `tests/test_route_patches_v3.py`: confirm routing into human repair remains
+  unchanged
+- `tests/test_patch_v3.py`, `tests/test_validate_v3.py`, and
+  `tests/test_commit_v3.py`: run unchanged to guard the automated update loop
+
+### Step 12: Update Supporting Test Plans
 
 After production behavior is stable:
 
@@ -294,14 +404,17 @@ After production behavior is stable:
 Do not erase historical completed-test records. Clearly distinguish tests that
 were reviewed unchanged from tests that were adapted.
 
-### Step 10: Run Regression Gates
+### Step 13: Run Regression Gates
 
 Run affected focused files first:
 
 1. `tests/test_extract_branch_v3.py`
-2. `tests/test_create_failure_policy_v3.py`
-3. `tests/test_parent_subject_routing_integration_v3.py`
-4. `tests/test_parent_multiturn_integration_v3.py`
+2. `tests/test_human_repair_v3.py`
+3. `tests/test_update_subgraph_integration_v3.py`
+4. `tests/test_parallel_update_repair_integration_v3.py`
+5. `tests/test_create_failure_policy_v3.py`
+6. `tests/test_parent_subject_routing_integration_v3.py`
+7. `tests/test_parent_multiturn_integration_v3.py`
 
 Then run every currently implemented Part 3 macroplan test and the complete
 test suite. Test 11 remains a separate unfinished workflow and should be built
@@ -316,7 +429,7 @@ after this create-recovery migration unless its scope is deliberately changed.
 - create and update siblings merge through the parent reducer
 - completed sibling work survives while another branch is interrupted
 - several parallel interrupts can be resumed one at a time by interrupt ID
-- update retry, validation, human repair, and commit behavior remain unchanged
+- update automated retry, validation, and commit behavior remain unchanged
 - wrapper nodes continue returning valid partial parent-state updates
 
 ## Completion Gate
@@ -326,10 +439,14 @@ This plan is complete when:
 - [ ] the create-recovery contract is implemented
 - [ ] UUID generation occurs only in `commit_created_profile(...)`
 - [ ] expected create failures retry once and then interrupt for human repair
-- [ ] invalid human repair input can be corrected without losing branch state
+- [ ] invalid or declined human repair input ends the branch without creating a
+      profile or interrupting again
+- [ ] update human repair interrupts once and uses the submit/decline envelope
+- [ ] invalid or declined update human repair ends without changing the profile
+      or interrupting again
 - [ ] every currently implemented Part 3 MacroPlan test has been reviewed and
       run
-- [ ] Tests 5, 7, 8, and 10 are adapted where required
+- [ ] Tests 3, 5, 6, 7, 8, 9, and 10 are adapted where required
 - [ ] Test 11's future microplan has been checked for create-recovery impact
 - [ ] focused tests and the full suite pass
 - [ ] the MacroPlan and edge-case documentation describe the implemented policy

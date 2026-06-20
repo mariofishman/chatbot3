@@ -240,6 +240,114 @@ Workflow:
 - [x] Full suite passed: `95 passed`
 - [x] Completion recorded
 
+## Create-Recovery Migration Review
+
+Before starting Test 10, implement the create-recovery migration described in:
+
+- `SHORT_TERM_PLANS/SHORT_TERM_PLAN3v5.md`
+
+After the production migration is complete, review the previously completed
+Part 3 tests against the new extraction candidate, retry, human-repair, and
+commit contracts.
+
+Do not erase the original completion records above. Record this as a second,
+focused migration-review pass.
+
+### Production Migration
+
+- [x] Complete create-recovery Steps 1–7 of `SHORT_TERM_PLAN3v5.md`
+- [ ] Complete update-parity Steps 8–10 of `SHORT_TERM_PLAN3v5.md`
+- [ ] Review the completed create- and update-recovery implementations
+- [x] Confirm extraction UUID generation occurs only at the commit boundary
+- [ ] Confirm update automated retry, validation, and commit behavior remains
+      unchanged before human escalation
+- [ ] Confirm create and update human repair each interrupt once and use
+      explicit submit/decline envelopes
+
+### Tests Requiring Extension Microplans And Adaptation
+
+#### Test 3: `tests/test_update_subgraph_integration_v3.py`
+
+- [ ] Write and review an update-human-repair compatibility extension microplan
+- [ ] Preserve successful and no-op update behavior
+- [ ] Confirm valid submitted human patches continue to commit
+- [ ] Confirm declined or invalid human responses end without changing the
+      existing profile
+- [ ] Run the focused file and record the result
+
+#### Test 5: `tests/test_extract_branch_v3.py`
+
+- [ ] Write and review a create-recovery extension microplan
+- [ ] Adapt direct `extract_node(...)` assertions to the candidate/error
+      contract
+- [ ] Add model-retry, one-time human-repair, invalid-or-declined-human-input,
+      and commit-boundary coverage
+- [ ] Preserve existing happy-path, sparse-profile, prompt, payload, and wrapper
+      coverage
+- [ ] Run the focused file and record the result
+
+#### Test 7: `tests/test_parent_subject_routing_integration_v3.py`
+
+- [ ] Write and review a create-recovery compatibility extension microplan
+- [ ] Adapt deterministic fakes only where the additional extraction lifecycle
+      requires it
+- [ ] Confirm no-subject, create-only, update-only, mixed, branch-isolation,
+      and merge-back behavior remains intact
+- [ ] Avoid duplicating detailed create-repair coverage assigned to Test 10
+- [ ] Run the focused file and record the result
+
+#### Test 8: `tests/test_parent_multiturn_integration_v3.py`
+
+- [ ] Write and review a create-recovery compatibility extension microplan
+- [ ] Adapt deterministic fakes only where required
+- [ ] Confirm committed create IDs remain usable by later update turns
+- [ ] Confirm temporary create candidates and errors do not leak into parent
+      checkpointed state
+- [ ] Preserve all existing multi-turn and thread-isolation coverage
+- [ ] Run the focused file and record the result
+
+#### Test 9: `tests/test_parallel_update_repair_integration_v3.py`
+
+- [ ] Write and review a one-time update-human-repair extension microplan
+- [ ] Adapt valid human repair resumes to the submit action envelope
+- [ ] Add one declined update alongside successful siblings
+- [ ] Add mixed submit/decline responses across several parallel interrupts
+- [ ] Confirm declined profiles remain unchanged and no response interrupts
+      again
+- [ ] Run the focused file and record the result
+
+#### Focused Update Test: `tests/test_human_repair_v3.py`
+
+- [ ] Write and review a one-time action-envelope extension microplan
+- [ ] Replace repeated-interrupt expectations with submit, decline, malformed,
+      missing-action, wrong-target, and invalid-patches outcomes
+- [ ] Add direct post-human router coverage
+- [ ] Run the focused file and record the result
+
+### Tests Expected To Remain Unchanged
+
+- [ ] Test 1: run `tests/test_upstream_subject_node_v3.py`
+- [ ] Test 2: review and run `tests/test_state_reducers_v3.py`; confirm only
+      committed profiles reach the reducer
+- [ ] Test 4: review and run `tests/test_subject_fanout_v3.py`; confirm routed
+      create payloads remain unchanged
+- [ ] Test 6: review and run `tests/test_update_parent_branch_v3.py`; confirm a
+      declined update leaves the parent profile unchanged
+- [ ] Run `tests/test_route_patches_v3.py`
+- [ ] Run `tests/test_patch_v3.py`
+- [ ] Run `tests/test_validate_v3.py`
+- [ ] Run `tests/test_commit_v3.py`
+
+### Migration Review Completion
+
+- [ ] All affected focused files pass
+- [ ] All unchanged focused files pass
+- [ ] The full suite passes
+- [ ] New focused and full-suite results are recorded without erasing the
+      original Test 1–9 completion history
+- [ ] Test 10 is ready for a rewritten microplan based on the implemented
+      create-recovery policy
+
 ### 10. Create `tests/test_create_failure_policy_v3.py`
 
 Coverage:

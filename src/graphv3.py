@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 
 from langchain_openai import ChatOpenAI
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import InMemorySaver
@@ -58,6 +59,13 @@ def format_messages(messages: list[BaseMessage])-> str:
 def format_string_from_user_profile(user : UserProfile) -> str:
     return "\n".join([f"{k} : {v}" for k, v in user.model_dump().items()])
 
+def profile_has_information(profile: UserProfile) -> bool:
+    """Return whether a profile contains at least one meaningful field value."""
+    return any(
+        value.strip() if isinstance(value, str) else value
+        for value in profile.model_dump().values()
+    )
+
 # ----------------------------
 # 1. Parent state
 # ----------------------------
@@ -74,7 +82,12 @@ class MainState(BaseModel):
 # ----------------------------
 
 def extract_node(state: ExtractAgentState) -> ExtractAgentState:
-    """Extract exactly one new profile from one subject-specific branch."""
+    """Extract one new profile, retrying once after an expected output failure.
+
+    Recoverable failures are structured-output parsing failures, Pydantic
+    validation failures, and missing structured output. Provider,
+    infrastructure, and unrelated programming errors intentionally propagate.
+    """
     formatted_messages = format_messages(state.messages)
 
     system_prompt = f"""
@@ -92,16 +105,186 @@ Rules:
 SUPPORTING MESSAGE(S):
 {formatted_messages}
 """
-    
-    structured_llm = llm.with_structured_output(UserProfile)
-    result = structured_llm.invoke([SystemMessage(system_prompt)])
 
-    return {"existing": {str(uuid.uuid4()): result}}
+    structured_llm = llm.with_structured_output(UserProfile)
+
+    def invoke_and_validate(prompt: str) -> UserProfile:
+        result = structured_llm.invoke([SystemMessage(prompt)])
+        if result is None:
+            raise OutputParserException("Structured extraction returned no UserProfile.")
+        profile = UserProfile.model_validate(result)
+        if not profile_has_information(profile):
+            raise OutputParserException(
+                "Structured extraction returned a UserProfile without information."
+            )
+        return profile
+
+    try:
+        candidate = invoke_and_validate(system_prompt)
+    except (OutputParserException, ValidationError) as first_error:
+        retry_prompt = f"""
+Your previous attempt to extract one UserProfile failed.
+
+Review the extraction error and repeat the original task. Return exactly one
+valid UserProfile matching the schema.
+
+EXTRACTION ERROR:
+{first_error}
+
+ORIGINAL TASK:
+{system_prompt}
+"""
+        try:
+            candidate = invoke_and_validate(retry_prompt)
+        except (OutputParserException, ValidationError) as retry_error:
+            return {
+                "candidate": None,
+                "errors": [str(retry_error)],
+            }
+
+    return {
+        "candidate": candidate,
+        "errors": [],
+    }
+
+
+def route_extraction(
+    state: ExtractAgentState,
+) -> Literal["commit_created_profile", "human_create_repair"]:
+    """Route a valid create candidate to commit or failed extraction to a human."""
+    if state.candidate is not None and not state.errors:
+        return "commit_created_profile"
+    if state.candidate is None and state.errors:
+        return "human_create_repair"
+    raise ValueError(
+        "route_extraction() expects either one valid candidate or extraction errors."
+    )
+
+
+def human_create_repair(state: ExtractAgentState) -> ExtractAgentState:
+    """Interrupt once and process an explicit submit-or-decline response.
+
+    A submitted profile is validated as one complete UserProfile. Declined,
+    malformed, missing-action, or invalid-profile responses end the branch
+    without producing a candidate.
+    """
+    if state.candidate is not None:
+        raise ValueError(
+            "human_create_repair() expects no valid candidate before human repair."
+        )
+    if not state.errors:
+        raise ValueError(
+            "human_create_repair() expects extraction errors before human repair."
+        )
+
+    payload = interrupt(
+        {
+            "message": (
+                "Automated extraction failed twice. Please provide one complete "
+                "UserProfile for this subject or decline creation."
+            ),
+            "subject_label": state.subject.subject_label,
+            "supporting_messages": format_messages(state.messages),
+            "errors": state.errors,
+            "response_instruction": "Resume with exactly one of these response examples.",
+            "response_examples": [
+                {
+                    "action": "submit",
+                    "profile": UserProfile.model_json_schema(),
+                },
+                {"action": "decline"},
+            ],
+        }
+    )
+
+    if not isinstance(payload, dict):
+        return {
+            "candidate": None,
+            "errors": ["Human create-repair response must be an action envelope."],
+        }
+
+    action = payload.get("action")
+    if action == "decline":
+        return {
+            "candidate": None,
+            "errors": ["Human declined profile creation."],
+        }
+    if action != "submit":
+        return {
+            "candidate": None,
+            "errors": ["Human create-repair response requires action='submit' or 'decline'."],
+        }
+
+    try:
+        candidate = UserProfile.model_validate(payload.get("profile"))
+    except ValidationError as error:
+        return {
+            "candidate": None,
+            "errors": [
+                f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
+                if item.get("loc")
+                else item["msg"]
+                for item in error.errors()
+            ],
+        }
+    if not profile_has_information(candidate):
+        return {
+            "candidate": None,
+            "errors": ["Submitted UserProfile must contain at least one profile value."],
+        }
+
+    return {
+        "candidate": candidate,
+        "errors": [],
+    }
+
+
+def route_after_human_create_repair(
+    state: ExtractAgentState,
+) -> Literal["commit_created_profile", "__end__"]:
+    """Commit a valid human profile or end without creating a profile."""
+    if state.candidate is not None and not state.errors:
+        return "commit_created_profile"
+    if state.candidate is None:
+        return "__end__"
+    raise ValueError(
+        "route_after_human_create_repair() cannot commit a candidate while "
+        "human-repair errors remain."
+    )
+
+
+def commit_created_profile(state: ExtractAgentState) -> ExtractAgentState:
+    """Commit one valid extracted profile under a newly generated ID."""
+    if state.existing:
+        raise ValueError(
+            "commit_created_profile() expects no profiles committed before create commit."
+        )
+    if state.candidate is None:
+        raise ValueError(
+            "commit_created_profile() expects one valid candidate profile."
+        )
+    if state.errors:
+        raise ValueError(
+            "commit_created_profile() expects empty state.errors."
+        )
+
+    return {"existing": {str(uuid.uuid4()): state.candidate}}
 
 extract_builder = StateGraph(ExtractAgentState)
 extract_builder.add_node("extract", extract_node)
+extract_builder.add_node("human_create_repair", human_create_repair)
+extract_builder.add_node("commit_created_profile", commit_created_profile)
 extract_builder.add_edge(START, "extract")
-extract_builder.add_edge("extract", END)
+extract_builder.add_conditional_edges("extract", route_extraction)
+extract_builder.add_conditional_edges(
+    "human_create_repair",
+    route_after_human_create_repair,
+    {
+        "commit_created_profile": "commit_created_profile",
+        "__end__": END,
+    },
+)
+extract_builder.add_edge("commit_created_profile", END)
 
 extract_subgraph = extract_builder.compile()
 
@@ -349,11 +532,12 @@ def route_patches(state: UpdateAgentState) -> Literal["patch", "commit", "human_
     return "patch"
 
 def human_repair(state: UpdateAgentState) -> UpdateAgentState:
-    """Pause the update loop and ask a human for corrective patches.
+    """Interrupt once and process an explicit submit-or-decline response.
 
     This node is reached only after validation errors remain once the patch
-    retry limit has been exhausted. It preserves the current update-local
-    state and asks the human to provide corrective `PatchProposalList` data.
+    retry limit has been exhausted. A valid submitted patch list continues
+    through deterministic application and validation. Declined, malformed, or
+    invalid human responses end the update branch without changing the profile.
     """
     if len(state.existing) != 1:
         raise ValueError(
@@ -377,54 +561,29 @@ def human_repair(state: UpdateAgentState) -> UpdateAgentState:
             f"but current target profile is {target_id}."
         )
 
+    def no_update(reason: str) -> dict:
+        return {
+            "patches": [],
+            "errors": {target_id: [reason]},
+            "attempts": state.attempts,
+        }
+
     payload = interrupt(
         {
             "message": (
                 "The maximum number of patch repair attempts was reached. "
-                "Please return corrective JSON patch proposals for this one target profile."
+                "Please submit corrective JSON patch proposals for this one "
+                "target profile, or decline the update."
             ),
             "target_id": target_id,
             "existing_profile": target_profile.model_dump(),
             "failed_candidate": candidate_data,
             "errors": state.errors,
-            "expected_format": {
-                "items": [
-                    {
-                        "target_id": target_id,
-                        "patches": [
-                            {
-                                "op": "replace",
-                                "path": "/interests",
-                                "value": ["metals", "AI hiring"],
-                            }
-                        ],
-                    }
-                ]
-            },
-        }
-    )
-
-    while True:
-        try:
-            validated_result = PatchProposalList.model_validate(payload)
-            if not validated_result.items:
-                raise ValueError(
-                    "At least one PatchProposal must be provided for human repair."
-                )
-            if any(proposal.target_id != target_id for proposal in validated_result.items):
-                raise ValueError(
-                    "All human repair PatchProposals must target the current user id."
-                )
-            break
-        except (ValidationError, ValueError) as e:
-            payload = interrupt(
+            "response_instruction": "Resume with exactly one of these response examples.",
+            "response_examples": [
                 {
-                    "message": (
-                        "The payload did not match the expected PatchProposalList JSON shape. "
-                        "Please try again."
-                    ),
-                    "errors": e.errors() if isinstance(e, ValidationError) else [str(e)],
-                    "expected_format": {
+                    "action": "submit",
+                    "patches": {
                         "items": [
                             {
                                 "target_id": target_id,
@@ -438,14 +597,64 @@ def human_repair(state: UpdateAgentState) -> UpdateAgentState:
                             }
                         ]
                     },
-                }
-            )
+                },
+                {"action": "decline"},
+            ],
+        }
+    )
+
+    if not isinstance(payload, dict):
+        return no_update("Human update-repair response must be an action envelope.")
+
+    action = payload.get("action")
+    if action == "decline":
+        return no_update("Human declined update repair.")
+    if action != "submit":
+        return no_update(
+            "Human update-repair response requires action='submit' or 'decline'."
+        )
+
+    try:
+        validated_result = PatchProposalList.model_validate(payload.get("patches"))
+    except ValidationError as error:
+        return {
+            "patches": [],
+            "errors": {
+                target_id: [
+                    f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
+                    if item.get("loc")
+                    else item["msg"]
+                    for item in error.errors()
+                ]
+            },
+            "attempts": state.attempts,
+        }
+
+    if not validated_result.items:
+        return no_update("At least one PatchProposal must be provided for human repair.")
+    if any(proposal.target_id != target_id for proposal in validated_result.items):
+        return no_update(
+            "All human repair PatchProposals must target the current user id."
+        )
 
     return {
         "patches": validated_result.items,
         "errors": {},
         "attempts": state.attempts,
     }
+
+def route_after_human_repair(
+    state: UpdateAgentState,
+) -> Literal["apply_patch", "__end__"]:
+    """Apply valid human patches or end without changing the profile."""
+    if state.patches and not state.errors:
+        return "apply_patch"
+    if not state.patches:
+        return "__end__"
+    raise ValueError(
+        "route_after_human_repair() cannot apply patches while human-repair "
+        "errors remain."
+    )
 
 def patch(state: UpdateAgentState) -> UpdateAgentState:
     """Repair invalid candidates using validation feedback.
@@ -581,7 +790,14 @@ update_builder.add_edge("update_patches", "apply_patch")
 update_builder.add_edge("apply_patch", "validate")
 update_builder.add_conditional_edges("validate", route_patches)
 update_builder.add_edge("patch", "apply_patch")
-update_builder.add_edge("human_repair", "apply_patch")
+update_builder.add_conditional_edges(
+    "human_repair",
+    route_after_human_repair,
+    {
+        "apply_patch": "apply_patch",
+        "__end__": END,
+    },
+)
 update_builder.add_edge("commit", END)
 
 update_subgraph = update_builder.compile()

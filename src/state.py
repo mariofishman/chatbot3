@@ -84,6 +84,8 @@ class MainState(BaseModel):
 class ExtractAgentState(BaseModel):
     subject: SubjectBucket
     messages: Annotated[list[BaseMessage], add]
+    candidate: UserProfile | None = None
+    errors: list[str] = Field(default_factory=list)
     existing: Annotated[dict[str, UserProfile], merge_profiles] = Field(default_factory=dict)
 
 class UpdateAgentState(BaseModel):
