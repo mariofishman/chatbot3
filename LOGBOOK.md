@@ -2518,3 +2518,41 @@ Future reference commit:
 a2ff811c9ef3885ad69ebee503dbed48e22e21ef
 refactor(graph): add one-shot human recovery for create and update branches
 ```
+
+## 📅 Log Entry: June 20th, 2026 - Entry 2: Part 3 Test MacroPlan Completed
+
+After completing the recovery refactor in Entry 1, we resumed the deterministic
+Part 3 testing work that had been interrupted during the June 13th and 14th
+test expansion. The goal was to finish `PART3_TEST_MACROPLAN.md` against the
+new create/update recovery contracts instead of the older behavior.
+
+The test plan was brought to completion by adding and adapting the remaining
+coverage around:
+
+- create-side failure policy after the new extraction candidate/retry/human
+  repair flow
+- update-side one-shot human repair using explicit submit/decline envelopes
+- parallel update repair with several interrupts resumed by interrupt ID
+- parent routing and multiturn compatibility after the recovery refactor
+- defensive duplicate-boundary behavior for planner output
+
+The last architectural correction happened in `graphv3.py`: duplicate
+existing-subject buckets with the same `candidate_existing_id` are now merged
+inside `subject_planner_node(...)`, before fanout. This keeps
+`fan_out_updates(...)` simple and ensures it receives one clean update bucket
+per persisted profile. Duplicate new-label ambiguity remains intentionally
+deferred to the future persistence-backed identity-resolution work.
+
+`PART3_TEST_MACROPLAN.md` now records all eleven workflows as complete, with
+the recovery-test adaptation queue closed and the final full suite passing:
+
+```text
+145 passed
+```
+
+Future reference commit:
+
+```text
+5915446
+Complete Part 3 recovery and defensive testing expansion
+```
