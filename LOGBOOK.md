@@ -2468,3 +2468,53 @@ This decision postpones Test 10 until the new recovery policy is implemented.
 The executable roadmap is recorded in:
 
 - `SHORT_TERM_PLANS/SHORT_TERM_PLAN3v5.md`
+
+## 📅 Log Entry: June 20th, 2026 - Recovery Refactor Completed
+
+This entry completes the work opened by the June 14th recovery decision. Test
+10 had been paused because create-side failure behavior was not safe enough to
+freeze in deterministic tests. Instead of writing tests around a weak contract,
+we first refactored the recovery architecture that those tests need to protect.
+
+The create branch now follows the policy described in the June 14th entry:
+
+- `ExtractAgentState` carries an uncommitted `candidate` and extraction
+  `errors`
+- `extract_node(...)` retries once after expected structured-output or
+  validation failures
+- unusable empty profiles are treated as extraction failures instead of valid
+  creates
+- `human_create_repair(...)` interrupts once with an explicit submit/decline
+  envelope
+- declined, malformed, missing-action, or invalid human create responses end
+  the branch without creating a profile
+- `commit_created_profile(...)` is now the only place where a UUID is generated
+  and inserted into `existing`
+
+While implementing that recovery policy, we also noticed that the update-side
+human repair path had the same UX risk: after automated patch repair attempts
+were exhausted, invalid human input could lead to repeated interrupts. The
+update subgraph was therefore aligned with the create branch:
+
+- `human_repair(...)` now interrupts once and expects either a submit action
+  with corrective patch proposals or a decline action
+- valid submitted update patches continue through
+  `apply_patch(...) -> validate(...) -> commit(...)`
+- declined, malformed, missing-action, wrong-target, empty, or invalid human
+  update responses end the update branch without changing the original profile
+- a new post-human update router decides whether to apply submitted patches or
+  end the branch
+- the automated model repair loop before human escalation remains unchanged
+
+The recovery roadmap and Part 3 Test MacroPlan were updated so the remaining
+test work starts from the new contract instead of the old one. Test 10 and the
+later deterministic tests should now be resumed by extending the affected test
+files around the new submit/decline behavior for both create and update
+branches.
+
+Future reference commit:
+
+```text
+a2ff811c9ef3885ad69ebee503dbed48e22e21ef
+refactor(graph): add one-shot human recovery for create and update branches
+```
