@@ -140,9 +140,10 @@ The previous ideation remains directly relevant for:
     - Expected: create branch completes and returns one profile.
 
 25. Structured extraction raises or returns schema-invalid output.
-    - Current behavior: failure propagates because create-side human repair was
-      intentionally removed.
-    - Test later only if this failure policy should be frozen.
+    - Expected: extraction retries once for expected structured-output
+      failures, then reaches one human create-repair interrupt if retry fails.
+      Valid human submit commits; decline or invalid submit ends without
+      creating.
 
 26. Generated IDs from several create branches.
     - Expected: every created profile receives a distinct ID.
@@ -281,8 +282,8 @@ The previous ideation remains directly relevant for:
 
 63. The planner returns two existing buckets with the same
     `candidate_existing_id`.
-    - Current risk: duplicate update branches target the same profile and
-      reducer outcome may depend on branch completion order.
+    - Expected: `subject_planner_node(...)` merges them into one clean existing
+      bucket before fanout, preserving all supporting message IDs.
 
 ## Highest-Risk Combined Scenarios
 
@@ -333,9 +334,9 @@ The previous ideation remains directly relevant for:
 | Soon | Several creates followed by one update | Unrelated profile loss |
 | Soon | One successful update plus one repaired update | Parallel branch and retry interaction |
 | Soon | Same thread versus different threads | State leakage across conversations |
-| Later | Human repair during parallel parent fanout | Interrupt/checkpoint complexity |
-| Later | Provider or structured-output failure on create | Failure-policy decision |
-| Later | Duplicate profile IDs returned by branches | Defensive reducer boundary |
+| Now | Human repair during parallel parent fanout | Interrupt/checkpoint complexity |
+| Now | Provider or structured-output failure on create | Failure-policy decision |
+| Now | Duplicate existing planner buckets by candidate ID | Planner cleanup boundary |
 
 ## Tests To Build Now
 
@@ -355,9 +356,6 @@ contract failure easy to diagnose.
 
 ## Tests That Can Wait
 
-- create provider/schema failure policy
-- parallel update branch reaching human repair
-- duplicate profile IDs returned by separate branches
 - semantic identity-resolution cases reserved for Part 4
 - exhaustive natural-language phrasing evaluation
 
@@ -369,7 +367,8 @@ contract failure easy to diagnose.
 - State accumulation: covered.
 - Routing and fanout: covered.
 - Wrapper boundaries: covered.
-- Interrupt and resume: acknowledged; focused parallel case deferred.
+- Interrupt and resume: covered by focused create and update recovery tests,
+  including parallel update repair.
 - Runtime type and state shape: covered.
 - No-op and partial outcomes: covered.
 - Merge-back behavior: covered.
@@ -398,8 +397,9 @@ Failures that would be especially embarrassing if found manually first:
   existing people, combined with subject-specific messages.
 - Repeated accumulated-history routing may currently produce a safe no-op
   update; suppressing that branch is a possible later optimization.
-- Parallel update repair and `human_repair` remain separate focused work after
-  the first wave because they add checkpointer and interrupt semantics.
+- Parallel update repair, create repair, and duplicate branch boundaries were
+  promoted into focused deterministic tests after the first wave because they
+  added checkpointer, interrupt, and reducer-order risk.
 
 ## Post-Audit Missing-Test Implementation Plan
 
@@ -649,18 +649,18 @@ Reason deferred:
 
 Potential coverage:
 
-- duplicate new-person buckets create duplicate profiles
-- duplicate existing buckets target the same profile
-- two branch slices return the same profile ID
-- repeated message IDs remain accepted by the bucket schema
-- unknown supporting-message IDs reach direct fanout
-- a missing existing candidate ID reaches direct update fanout
+- duplicate existing buckets target the same persisted profile ID
+- planner cleanup merges those buckets before fanout
+- the single update branch receives all supporting messages
+- duplicate new-person labels remain unchanged for now
 
 Reason deferred:
 
-- these expose known semantic-validation gaps
-- first decide whether Part 3 should reject duplicates or merely document the
-  current behavior
+- duplicate new-label and mixed new/existing ambiguity require richer
+  persistence-backed identity resolution from the future memory-agent design
+- the current safe policy only freezes behavior for duplicate
+  `candidate_existing_id` values, because that ID uniquely identifies the
+  persisted profile
 
 ### Coverage Mapping After This Plan
 

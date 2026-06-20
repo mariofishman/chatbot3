@@ -436,17 +436,17 @@ after this create-recovery migration unless its scope is deliberately changed.
 
 This plan is complete when:
 
-- [ ] the create-recovery contract is implemented
-- [ ] UUID generation occurs only in `commit_created_profile(...)`
-- [ ] expected create failures retry once and then interrupt for human repair
-- [ ] invalid or declined human repair input ends the branch without creating a
+- [x] the create-recovery contract is implemented
+- [x] UUID generation occurs only in `commit_created_profile(...)`
+- [x] expected create failures retry once and then interrupt for human repair
+- [x] invalid or declined human repair input ends the branch without creating a
       profile or interrupting again
-- [ ] update human repair interrupts once and uses the submit/decline envelope
-- [ ] invalid or declined update human repair ends without changing the profile
+- [x] update human repair interrupts once and uses the submit/decline envelope
+- [x] invalid or declined update human repair ends without changing the profile
       or interrupting again
 - [ ] every currently implemented Part 3 MacroPlan test has been reviewed and
       run
 - [ ] Tests 3, 5, 6, 7, 8, 9, and 10 are adapted where required
-- [ ] Test 11's future microplan has been checked for create-recovery impact
+- [x] Test 11's future microplan has been checked for create-recovery impact
 - [ ] focused tests and the full suite pass
 - [ ] the MacroPlan and edge-case documentation describe the implemented policy

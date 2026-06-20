@@ -841,6 +841,38 @@ def subject_planner_node(state: MainState) -> MainState:
         }
         return unknown_message_ids, unknown_existing_ids
 
+    def clean_duplicate_existing_subjects(subjects: SubjectBucketList) -> SubjectBucketList:
+        cleaned_items = []
+        existing_by_id = {}
+
+        for subject in subjects.items:
+            if (
+                subject.classification == "existing"
+                and subject.candidate_existing_id is not None
+            ):
+                previous = existing_by_id.get(subject.candidate_existing_id)
+                if previous is None:
+                    existing_by_id[subject.candidate_existing_id] = len(cleaned_items)
+                    cleaned_items.append(subject)
+                    continue
+
+                previous_index = existing_by_id[subject.candidate_existing_id]
+                previous = cleaned_items[previous_index]
+                cleaned_items[previous_index] = previous.model_copy(
+                    update={
+                        "message_ids": list(
+                            dict.fromkeys(
+                                [*previous.message_ids, *subject.message_ids]
+                            )
+                        )
+                    }
+                )
+                continue
+
+            cleaned_items.append(subject)
+
+        return SubjectBucketList(items=cleaned_items)
+
     structured_llm = llm.with_structured_output(SubjectBucketList)
 
     formatted_existing = "\n".join(
@@ -924,6 +956,8 @@ Original task:
                 f"message_ids={sorted(unknown_message_ids)}, "
                 f"existing_profile_ids={sorted(unknown_existing_ids)}"
             )
+
+    result = clean_duplicate_existing_subjects(result)
 
     return {"subjects": result}
 

@@ -105,6 +105,11 @@ def message_ids(snapshot) -> list[str]:
     return [message.id for message in snapshot.values["messages"]]
 
 
+def assert_no_extract_local_state_leaks(snapshot) -> None:
+    assert "candidate" not in snapshot.values
+    assert "errors" not in snapshot.values
+
+
 def test_sparse_create_enrichment_and_correction_reuse_one_profile(monkeypatch):
     def subjects(prompt):
         if "id: hm_003" in prompt:
@@ -151,6 +156,8 @@ def test_sparse_create_enrichment_and_correction_reuse_one_profile(monkeypatch):
     )
     created_id = next(iter(first["existing"]))
     assert first["existing"] == {created_id: UserProfile(name="Lucia")}
+    assert len(fake_llm.prompts_for(UserProfile)) == 1
+    assert_no_extract_local_state_leaks(graph.get_state(config))
 
     second = graph.invoke(
         {
@@ -163,6 +170,7 @@ def test_sparse_create_enrichment_and_correction_reuse_one_profile(monkeypatch):
     assert second["existing"] == {
         created_id: UserProfile(name="Lucia", role="Lawyer", location="Lima")
     }
+    assert len(fake_llm.prompts_for(UserProfile)) == 1
 
     third = graph.invoke(
         {"messages": [HumanMessage(id="hm_003", content="Lucia moved to Cusco.")]},
@@ -171,7 +179,9 @@ def test_sparse_create_enrichment_and_correction_reuse_one_profile(monkeypatch):
     assert third["existing"] == {
         created_id: UserProfile(name="Lucia", role="Lawyer", location="Cusco")
     }
-    assert message_ids(graph.get_state(config)) == ["hm_001", "hm_002", "hm_003"]
+    snapshot = graph.get_state(config)
+    assert message_ids(snapshot) == ["hm_001", "hm_002", "hm_003"]
+    assert_no_extract_local_state_leaks(snapshot)
 
 
 def test_several_created_profiles_then_one_selected_update(monkeypatch):
@@ -220,6 +230,8 @@ def test_several_created_profiles_then_one_selected_update(monkeypatch):
     ids_by_name = {
         profile.name: user_id for user_id, profile in first["existing"].items()
     }
+    assert len(fake_llm.prompts_for(UserProfile)) == 2
+    assert_no_extract_local_state_leaks(graph.get_state(config))
 
     second = graph.invoke(
         {"messages": [HumanMessage(id="hm_003", content="Lucia lives in Lima.")]},
@@ -236,6 +248,8 @@ def test_several_created_profiles_then_one_selected_update(monkeypatch):
         name="Maria",
         role="Engineer",
     )
+    assert len(fake_llm.prompts_for(UserProfile)) == 2
+    assert_no_extract_local_state_leaks(graph.get_state(config))
 
 
 def test_no_subject_later_turn_clears_buckets_but_preserves_state(monkeypatch):
@@ -262,6 +276,8 @@ def test_no_subject_later_turn_clears_buckets_but_preserves_state(monkeypatch):
     )
     existing = first["existing"]
     calls_before_second_turn = len(fake_llm.calls)
+    assert len(fake_llm.prompts_for(UserProfile)) == 1
+    assert_no_extract_local_state_leaks(graph.get_state(config))
 
     second = graph.invoke(
         {"messages": [HumanMessage(id="hm_002", content="It rained yesterday.")]},
@@ -275,6 +291,8 @@ def test_no_subject_later_turn_clears_buckets_but_preserves_state(monkeypatch):
     assert [schema for schema, _ in fake_llm.calls[calls_before_second_turn:]] == [
         SubjectBucketList
     ]
+    assert len(fake_llm.prompts_for(UserProfile)) == 1
+    assert_no_extract_local_state_leaks(snapshot)
 
 
 def test_same_thread_accumulates_while_different_threads_stay_isolated(monkeypatch):
@@ -328,6 +346,9 @@ def test_same_thread_accumulates_while_different_threads_stay_isolated(monkeypat
 
     snapshot_a = graph.get_state(config_a)
     snapshot_b = graph.get_state(config_b)
+    assert_no_extract_local_state_leaks(snapshot_a)
+    assert_no_extract_local_state_leaks(snapshot_b)
+    assert len(fake_llm.prompts_for(UserProfile)) == 2
     assert message_ids(snapshot_a) == ["hm_a1", "hm_a2"]
     assert message_ids(snapshot_b) == ["hm_b1"]
     assert [profile.name for profile in snapshot_a.values["existing"].values()] == [

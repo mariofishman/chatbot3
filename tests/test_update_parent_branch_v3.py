@@ -120,6 +120,27 @@ def test_routed_noop_update_completes_through_real_update_subgraph(monkeypatch):
     assert result == {"existing": {"user_001": profile}}
 
 
+def test_declined_update_branch_returns_unchanged_profile_slice(monkeypatch):
+    profile = UserProfile(name="John", location="London")
+    payload = routed_update_payload(
+        profile,
+        [HumanMessage(id="hm_001", content="John moved to Miami.")],
+    )
+    unchanged_slice = {"user_001": profile}
+    fake_subgraph = CapturingSubgraph({"existing": unchanged_slice})
+    monkeypatch.setattr(graphv3, "update_subgraph", fake_subgraph)
+
+    result = graphv3.run_update_subgagent(payload)
+
+    assert fake_subgraph.calls == [
+        {
+            "messages": payload["messages"],
+            "existing": {"user_001": profile},
+        }
+    ]
+    assert result == {"existing": unchanged_slice}
+
+
 @pytest.mark.parametrize(
     ("payload", "missing_key"),
     [

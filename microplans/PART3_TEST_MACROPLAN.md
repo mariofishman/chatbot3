@@ -242,113 +242,194 @@ Workflow:
 
 ## Create-Recovery Migration Review
 
-Before starting Test 10, implement the create-recovery migration described in:
+This section records the second pass through the Part 3 tests after the
+create- and update-recovery migration described in:
 
 - `SHORT_TERM_PLANS/SHORT_TERM_PLAN3v5.md`
 
-After the production migration is complete, review the previously completed
-Part 3 tests against the new extraction candidate, retry, human-repair, and
-commit contracts.
-
-Do not erase the original completion records above. Record this as a second,
-focused migration-review pass.
+The original Test 1-9 completion records above remain as historical progress.
+The checklist below records the focused migration-review pass and the added
+Test 10 and Test 11 workflows.
 
 ### Production Migration
 
 - [x] Complete create-recovery Steps 1–7 of `SHORT_TERM_PLAN3v5.md`
-- [ ] Complete update-parity Steps 8–10 of `SHORT_TERM_PLAN3v5.md`
-- [ ] Review the completed create- and update-recovery implementations
+- [x] Complete update-parity Steps 8–10 of `SHORT_TERM_PLAN3v5.md`
+- [x] Review the completed create- and update-recovery implementations
 - [x] Confirm extraction UUID generation occurs only at the commit boundary
-- [ ] Confirm update automated retry, validation, and commit behavior remains
+- [x] Confirm update automated retry, validation, and commit behavior remains
       unchanged before human escalation
-- [ ] Confirm create and update human repair each interrupt once and use
+- [x] Confirm create and update human repair each interrupt once and use
       explicit submit/decline envelopes
+
+### Recovery-Test Adaptation Order
+
+These workflows were completed one at a time. For each item, the listed
+microplan was reviewed, the target test file was adapted or created, the
+focused file was run, and the full suite was run before moving to the next
+item.
+
+1. `microplans/TEST_HUMAN_REPAIR_V3_ACTION_ENVELOPE_EXTENSION_MICROPLAN.md`
+   -> `tests/test_human_repair_v3.py`
+2. `microplans/TEST_UPDATE_SUBGRAPH_V3_UPDATE_RECOVERY_EXTENSION_MICROPLAN.md`
+   -> `tests/test_update_subgraph_integration_v3.py`
+3. `microplans/TEST_PARALLEL_UPDATE_REPAIR_V3_ACTION_ENVELOPE_EXTENSION_MICROPLAN.md`
+   -> `tests/test_parallel_update_repair_integration_v3.py`
+4. `microplans/TEST_EXTRACT_BRANCH_V3_CREATE_RECOVERY_EXTENSION_MICROPLAN.md`
+   -> `tests/test_extract_branch_v3.py`
+5. `microplans/TEST_CREATE_FAILURE_POLICY_V3_MICROPLAN.md`
+   -> `tests/test_create_failure_policy_v3.py`
+6. `microplans/TEST_UPDATE_PARENT_BRANCH_V3_DECLINE_COMPATIBILITY_MICROPLAN.md`
+   -> `tests/test_update_parent_branch_v3.py`
+7. `microplans/TEST_PARENT_SUBJECT_ROUTING_V3_RECOVERY_COMPATIBILITY_MICROPLAN.md`
+   -> `tests/test_parent_subject_routing_integration_v3.py`
+8. `microplans/TEST_PARENT_MULTITURN_V3_RECOVERY_COMPATIBILITY_MICROPLAN.md`
+   -> `tests/test_parent_multiturn_integration_v3.py`
+9. `microplans/TEST_DEFENSIVE_DUPLICATE_BRANCH_BOUNDARIES_V3_MICROPLAN.md`
+   -> `tests/test_defensive_duplicate_branch_boundaries_v3.py`
 
 ### Tests Requiring Extension Microplans And Adaptation
 
 #### Test 3: `tests/test_update_subgraph_integration_v3.py`
 
-- [ ] Write and review an update-human-repair compatibility extension microplan
-- [ ] Preserve successful and no-op update behavior
-- [ ] Confirm valid submitted human patches continue to commit
-- [ ] Confirm declined or invalid human responses end without changing the
+- [x] Write an update-human-repair compatibility extension microplan:
+      `microplans/TEST_UPDATE_SUBGRAPH_V3_UPDATE_RECOVERY_EXTENSION_MICROPLAN.md`
+- [x] Review the update-human-repair compatibility extension microplan
+- [x] Preserve successful and no-op update behavior
+- [x] Confirm valid submitted human patches continue to commit
+- [x] Confirm declined or invalid human responses end without changing the
       existing profile
-- [ ] Run the focused file and record the result
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_update_subgraph_integration_v3.py` -> `7 passed`
 
 #### Test 5: `tests/test_extract_branch_v3.py`
 
-- [ ] Write and review a create-recovery extension microplan
-- [ ] Adapt direct `extract_node(...)` assertions to the candidate/error
+- [x] Write a create-recovery extension microplan:
+      `microplans/TEST_EXTRACT_BRANCH_V3_CREATE_RECOVERY_EXTENSION_MICROPLAN.md`
+- [x] Review the create-recovery extension microplan
+- [x] Adapt direct `extract_node(...)` assertions to the candidate/error
       contract
-- [ ] Add model-retry, one-time human-repair, invalid-or-declined-human-input,
+- [x] Add model-retry, one-time human-repair, invalid-or-declined-human-input,
       and commit-boundary coverage
-- [ ] Preserve existing happy-path, sparse-profile, prompt, payload, and wrapper
+- [x] Preserve existing happy-path, sparse-profile, prompt, payload, and wrapper
       coverage
-- [ ] Run the focused file and record the result
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_extract_branch_v3.py` -> `24 passed`
+
+#### Test 6: `tests/test_update_parent_branch_v3.py`
+
+- [x] Write a decline-compatibility extension microplan:
+      `microplans/TEST_UPDATE_PARENT_BRANCH_V3_DECLINE_COMPATIBILITY_MICROPLAN.md`
+- [x] Review the decline-compatibility extension microplan
+- [x] Add the focused declined-update wrapper compatibility case if still
+      useful after lower-level update tests pass
+- [x] Preserve routed payload, no-op update, wrapper contract, and missing-state
+      coverage
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_update_parent_branch_v3.py` -> `5 passed`
 
 #### Test 7: `tests/test_parent_subject_routing_integration_v3.py`
 
-- [ ] Write and review a create-recovery compatibility extension microplan
-- [ ] Adapt deterministic fakes only where the additional extraction lifecycle
+- [x] Write a create-recovery compatibility extension microplan:
+      `microplans/TEST_PARENT_SUBJECT_ROUTING_V3_RECOVERY_COMPATIBILITY_MICROPLAN.md`
+- [x] Review the create-recovery compatibility extension microplan
+- [x] Adapt deterministic fakes only where the additional extraction lifecycle
       requires it
-- [ ] Confirm no-subject, create-only, update-only, mixed, branch-isolation,
+- [x] Confirm no-subject, create-only, update-only, mixed, branch-isolation,
       and merge-back behavior remains intact
-- [ ] Avoid duplicating detailed create-repair coverage assigned to Test 10
-- [ ] Run the focused file and record the result
+- [x] Avoid duplicating detailed create-repair coverage assigned to Test 10
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_parent_subject_routing_integration_v3.py` -> `4 passed`
 
 #### Test 8: `tests/test_parent_multiturn_integration_v3.py`
 
-- [ ] Write and review a create-recovery compatibility extension microplan
-- [ ] Adapt deterministic fakes only where required
-- [ ] Confirm committed create IDs remain usable by later update turns
-- [ ] Confirm temporary create candidates and errors do not leak into parent
+- [x] Write a create-recovery compatibility extension microplan:
+      `microplans/TEST_PARENT_MULTITURN_V3_RECOVERY_COMPATIBILITY_MICROPLAN.md`
+- [x] Review the create-recovery compatibility extension microplan
+- [x] Adapt deterministic fakes only where required
+- [x] Confirm committed create IDs remain usable by later update turns
+- [x] Confirm temporary create candidates and errors do not leak into parent
       checkpointed state
-- [ ] Preserve all existing multi-turn and thread-isolation coverage
-- [ ] Run the focused file and record the result
+- [x] Preserve all existing multi-turn and thread-isolation coverage
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_parent_multiturn_integration_v3.py` -> `4 passed`
 
 #### Test 9: `tests/test_parallel_update_repair_integration_v3.py`
 
-- [ ] Write and review a one-time update-human-repair extension microplan
-- [ ] Adapt valid human repair resumes to the submit action envelope
-- [ ] Add one declined update alongside successful siblings
-- [ ] Add mixed submit/decline responses across several parallel interrupts
-- [ ] Confirm declined profiles remain unchanged and no response interrupts
+- [x] Write a one-time update-human-repair extension microplan:
+      `microplans/TEST_PARALLEL_UPDATE_REPAIR_V3_ACTION_ENVELOPE_EXTENSION_MICROPLAN.md`
+- [x] Review the one-time update-human-repair extension microplan
+- [x] Adapt valid human repair resumes to the submit action envelope
+- [x] Add one declined update alongside successful siblings
+- [x] Add mixed submit/decline responses across several parallel interrupts
+- [x] Confirm declined profiles remain unchanged and no response interrupts
       again
-- [ ] Run the focused file and record the result
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_parallel_update_repair_integration_v3.py` -> `5 passed`
 
 #### Focused Update Test: `tests/test_human_repair_v3.py`
 
-- [ ] Write and review a one-time action-envelope extension microplan
-- [ ] Replace repeated-interrupt expectations with submit, decline, malformed,
+- [x] Write a one-time action-envelope extension microplan:
+      `microplans/TEST_HUMAN_REPAIR_V3_ACTION_ENVELOPE_EXTENSION_MICROPLAN.md`
+- [x] Review the one-time action-envelope extension microplan
+- [x] Replace repeated-interrupt expectations with submit, decline, malformed,
       missing-action, wrong-target, and invalid-patches outcomes
-- [ ] Add direct post-human router coverage
-- [ ] Run the focused file and record the result
+- [x] Add direct post-human router coverage
+- [x] Run the focused file and record the result:
+      `.venv/bin/pytest -q tests/test_human_repair_v3.py` -> `14 passed`
 
 ### Tests Expected To Remain Unchanged
 
-- [ ] Test 1: run `tests/test_upstream_subject_node_v3.py`
-- [ ] Test 2: review and run `tests/test_state_reducers_v3.py`; confirm only
+- [x] Test 1: run `tests/test_upstream_subject_node_v3.py`
+- [x] Test 2: review and run `tests/test_state_reducers_v3.py`; confirm only
       committed profiles reach the reducer
-- [ ] Test 4: review and run `tests/test_subject_fanout_v3.py`; confirm routed
+- [x] Test 4: review and run `tests/test_subject_fanout_v3.py`; confirm routed
       create payloads remain unchanged
-- [ ] Test 6: review and run `tests/test_update_parent_branch_v3.py`; confirm a
-      declined update leaves the parent profile unchanged
-- [ ] Run `tests/test_route_patches_v3.py`
-- [ ] Run `tests/test_patch_v3.py`
-- [ ] Run `tests/test_validate_v3.py`
-- [ ] Run `tests/test_commit_v3.py`
+- [x] Run `tests/test_route_patches_v3.py`
+- [x] Run `tests/test_patch_v3.py`
+- [x] Run `tests/test_validate_v3.py`
+- [x] Run `tests/test_commit_v3.py`
+
+Focused unchanged-set result:
+
+```text
+.venv/bin/pytest -q tests/test_upstream_subject_node_v3.py tests/test_state_reducers_v3.py tests/test_subject_fanout_v3.py tests/test_route_patches_v3.py tests/test_patch_v3.py tests/test_validate_v3.py tests/test_commit_v3.py
+48 passed
+```
 
 ### Migration Review Completion
 
-- [ ] All affected focused files pass
-- [ ] All unchanged focused files pass
-- [ ] The full suite passes
-- [ ] New focused and full-suite results are recorded without erasing the
-      original Test 1–9 completion history
-- [ ] Test 10 is ready for a rewritten microplan based on the implemented
-      create-recovery policy
+- [x] All affected focused files pass
+- [x] All unchanged focused files pass
+- [x] The current full suite passes
+- [x] New focused and full-suite results are recorded without erasing the
+      original Test 1-9 completion history
+- [x] Test 10 and Test 11 are completed against the implemented recovery and
+      duplicate-existing-ID policies
+
+Full-suite status after the final recovery-test adaptation:
+
+```text
+.venv/bin/pytest -q
+145 passed
+```
+
+Completed affected queue items:
+
+- `tests/test_human_repair_v3.py`
+- `tests/test_update_subgraph_integration_v3.py`
+- `tests/test_parallel_update_repair_integration_v3.py`
+- `tests/test_extract_branch_v3.py`
+- `tests/test_create_failure_policy_v3.py`
+- `tests/test_update_parent_branch_v3.py`
+- `tests/test_parent_subject_routing_integration_v3.py`
+- `tests/test_parent_multiturn_integration_v3.py`
+- `tests/test_defensive_duplicate_branch_boundaries_v3.py`
 
 ### 10. Create `tests/test_create_failure_policy_v3.py`
+
+This workflow is part of the recovery-test adaptation queue above. Use
+`microplans/TEST_CREATE_FAILURE_POLICY_V3_MICROPLAN.md` as the microplan.
 
 Coverage:
 
@@ -360,41 +441,53 @@ Coverage:
 
 Workflow:
 
-- [ ] Microplan written
-- [ ] Microplan reviewed
-- [ ] Test file created
-- [ ] Tests reviewed
-- [ ] Focused file passed
-- [ ] Full suite passed
-- [ ] Completion recorded
+- [x] Microplan written:
+      `microplans/TEST_CREATE_FAILURE_POLICY_V3_MICROPLAN.md`
+- [x] Microplan reviewed
+- [x] Test file created
+- [x] Tests reviewed
+- [x] Focused file passed:
+      `.venv/bin/pytest -q tests/test_create_failure_policy_v3.py` -> `13 passed`
+- [x] Full suite passed:
+      `.venv/bin/pytest -q` -> `141 passed`
+- [x] Completion recorded
 
 ### 11. Create `tests/test_defensive_duplicate_branch_boundaries_v3.py`
 
+This workflow is part of the recovery-test adaptation queue above. Use
+`microplans/TEST_DEFENSIVE_DUPLICATE_BRANCH_BOUNDARIES_V3_MICROPLAN.md` as the
+microplan.
+
 Coverage:
 
-- duplicate subject buckets for one person
-- several update branches targeting the same existing profile ID
-- malformed or conflicting bucket combinations
-- explicit defensive behavior where branch results could otherwise depend on
-  completion order
+- duplicate existing-classified buckets targeting one persisted profile ID
+- planner cleanup that merges duplicated `candidate_existing_id` buckets before
+  fanout
+- one resulting update branch that receives all supporting messages for the
+  merged existing subject
+- explicit deferral of duplicate-new-label policy until richer identity
+  resolution and persistence exist
 
 Workflow:
 
-- [ ] Microplan written
-- [ ] Microplan reviewed
-- [ ] Test file created
-- [ ] Tests reviewed
-- [ ] Focused file passed
-- [ ] Full suite passed
-- [ ] Completion recorded
+- [x] Microplan written:
+      `microplans/TEST_DEFENSIVE_DUPLICATE_BRANCH_BOUNDARIES_V3_MICROPLAN.md`
+- [x] Microplan reviewed
+- [x] Test file created
+- [x] Tests reviewed
+- [x] Focused file passed:
+      `.venv/bin/pytest -q tests/test_defensive_duplicate_branch_boundaries_v3.py` -> `3 passed`
+- [x] Full suite passed:
+      `.venv/bin/pytest -q` -> `145 passed`
+- [x] Completion recorded
 
 ## Completion Gate
 
 Part 3 testing is complete when:
 
-- [ ] All eleven workflows are complete
-- [ ] Every focused test file passes
-- [ ] The full suite passes
-- [ ] Coverage is reviewed against
+- [x] All eleven workflows are complete
+- [x] Every focused test file passes
+- [x] The full suite passes
+- [x] Coverage is reviewed against
       `PART3_FANOUT_WRAPPER_INTEGRATION_EDGE_CASES.md`
-- [ ] Remaining gaps are moved into an explicit future architectural plan
+- [x] Remaining gaps are moved into an explicit future architectural plan

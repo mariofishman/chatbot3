@@ -40,6 +40,13 @@ def replace_field(user_id: str, path: str, value) -> PatchProposalList:
     )
 
 
+def submit_repair_payload(user_id: str, path: str, value) -> dict:
+    return {
+        "action": "submit",
+        "patches": replace_field(user_id, path, value).model_dump(),
+    }
+
+
 class ParallelRepairLLM:
     """Route update outputs by target and repair-prompt content."""
 
@@ -175,20 +182,11 @@ def test_human_repair_preserves_completed_sibling_and_resume_merges_repair(
     )
     john_calls_before_resume = len(fake_llm.patch_prompts_for("user_john"))
 
-    resume_payload = {
-        "items": [
-            {
-                "target_id": "user_philip",
-                "patches": [
-                    {
-                        "op": "replace",
-                        "path": "/interests",
-                        "value": ["metals", "AI hiring"],
-                    }
-                ],
-            }
-        ]
-    }
+    resume_payload = submit_repair_payload(
+        "user_philip",
+        "/interests",
+        ["metals", "AI hiring"],
+    )
     result = graph.invoke(
         Command(resume={pending_interrupt.id: resume_payload}),
         config=config,
@@ -204,6 +202,49 @@ def test_human_repair_preserves_completed_sibling_and_resume_merges_repair(
             location="London",
             interests=["metals", "AI hiring"],
         ),
+    }
+    assert len(fake_llm.patch_prompts_for("user_john")) == john_calls_before_resume
+
+
+def test_declined_human_repair_preserves_completed_sibling_and_original_profile(
+    monkeypatch,
+):
+    def patches(prompt):
+        if "Obj_id = user_john:" in prompt:
+            return replace_field("user_john", "/location", "Miami")
+        return replace_field("user_philip", "/interests", "AI hiring")
+
+    fake_llm = ParallelRepairLLM(update_subjects(), patches)
+    monkeypatch.setattr(graphv3, "llm", fake_llm)
+    graph = compile_checkpointed_parent()
+    config = {"configurable": {"thread_id": "parallel-human-decline"}}
+    original_state = build_parent_state()
+
+    interrupted_result = graph.invoke(original_state, config=config)
+    snapshot = graph.get_state(config)
+
+    assert "__interrupt__" in interrupted_result
+    assert len(snapshot.interrupts) == 1
+    pending_interrupt = snapshot.interrupts[0]
+    assert pending_interrupt.value["target_id"] == "user_philip"
+    assert snapshot.values["existing"]["user_john"].location == "Miami"
+    assert (
+        snapshot.values["existing"]["user_philip"]
+        == original_state.existing["user_philip"]
+    )
+    john_calls_before_resume = len(fake_llm.patch_prompts_for("user_john"))
+
+    result = graph.invoke(
+        Command(resume={pending_interrupt.id: {"action": "decline"}}),
+        config=config,
+    )
+    completed_snapshot = graph.get_state(config)
+
+    assert "__interrupt__" not in result
+    assert completed_snapshot.interrupts == ()
+    assert result["existing"] == {
+        "user_john": UserProfile(name="John", location="Miami"),
+        "user_philip": original_state.existing["user_philip"],
     }
     assert len(fake_llm.patch_prompts_for("user_john")) == john_calls_before_resume
 
@@ -265,20 +306,11 @@ def test_multiple_human_repairs_resume_one_at_a_time_by_interrupt_id(monkeypatch
     for _ in profiles:
         pending = result["__interrupt__"][0]
         user_id = pending.value["target_id"]
-        resume_payload = {
-            "items": [
-                {
-                    "target_id": user_id,
-                    "patches": [
-                        {
-                            "op": "replace",
-                            "path": "/interests",
-                            "value": repaired_interests[user_id],
-                        }
-                    ],
-                }
-            ]
-        }
+        resume_payload = submit_repair_payload(
+            user_id,
+            "/interests",
+            repaired_interests[user_id],
+        )
         result = graph.invoke(
             Command(resume={pending.id: resume_payload}),
             config=config,
@@ -307,3 +339,86 @@ def test_multiple_human_repairs_resume_one_at_a_time_by_interrupt_id(monkeypatch
     assert {
         user_id: len(fake_llm.patch_prompts_for(user_id)) for user_id in profiles
     } == calls_before_resume
+
+
+def test_multiple_human_repairs_support_mixed_submit_and_decline_by_interrupt_id(
+    monkeypatch,
+):
+    profiles = {
+        "user_john": UserProfile(name="John", interests=["football"]),
+        "user_philip": UserProfile(name="Philip", interests=["metals"]),
+        "user_lucia": UserProfile(name="Lucia", interests=["law"]),
+    }
+    messages = [
+        HumanMessage(id="hm_john", content="John likes cycling."),
+        HumanMessage(id="hm_philip", content="Philip likes AI hiring."),
+        HumanMessage(id="hm_lucia", content="Lucia likes gardening."),
+    ]
+    subjects = SubjectBucketList(
+        items=[
+            existing_subject("John", "hm_john", "user_john"),
+            existing_subject("Philip", "hm_philip", "user_philip"),
+            existing_subject("Lucia", "hm_lucia", "user_lucia"),
+        ]
+    )
+    repaired_interests = {
+        "user_john": ["football", "cycling"],
+        "user_lucia": ["law", "gardening"],
+    }
+
+    def patches(prompt):
+        for user_id in profiles:
+            if f"Obj_id = {user_id}" in prompt:
+                return replace_field(user_id, "/interests", "invalid list")
+        raise AssertionError("Patch prompt did not identify a known target")
+
+    fake_llm = ParallelRepairLLM(subjects, patches)
+    monkeypatch.setattr(graphv3, "llm", fake_llm)
+    graph = compile_checkpointed_parent()
+    config = {"configurable": {"thread_id": "parallel-mixed-submit-decline"}}
+
+    result = graph.invoke(
+        MainState(messages=messages, existing=profiles),
+        config=config,
+    )
+
+    assert "__interrupt__" in result
+    assert len(graph.get_state(config).interrupts) == 3
+
+    repair_actions = {
+        "user_john": submit_repair_payload(
+            "user_john",
+            "/interests",
+            repaired_interests["user_john"],
+        ),
+        "user_philip": {"action": "decline"},
+        "user_lucia": submit_repair_payload(
+            "user_lucia",
+            "/interests",
+            repaired_interests["user_lucia"],
+        ),
+    }
+    expected_profiles = dict(profiles)
+
+    while result.get("__interrupt__"):
+        pending = result["__interrupt__"][0]
+        user_id = pending.value["target_id"]
+        result = graph.invoke(
+            Command(resume={pending.id: repair_actions[user_id]}),
+            config=config,
+        )
+        snapshot = graph.get_state(config)
+
+        if user_id in repaired_interests:
+            expected_profiles[user_id] = profiles[user_id].model_copy(
+                update={"interests": repaired_interests[user_id]}
+            )
+
+        assert snapshot.values["existing"][user_id] == expected_profiles[user_id]
+        for interrupt in result.get("__interrupt__", ()):
+            unresolved_id = interrupt.value["target_id"]
+            assert snapshot.values["existing"][unresolved_id] == profiles[unresolved_id]
+
+    assert graph.get_state(config).interrupts == ()
+    assert result["existing"] == expected_profiles
+    assert result["existing"]["user_philip"] == profiles["user_philip"]

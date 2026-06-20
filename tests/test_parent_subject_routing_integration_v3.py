@@ -117,6 +117,11 @@ def assert_contains_only_subject_evidence(
         assert message.content not in prompt
 
 
+def assert_no_extract_local_state_leaks(result: dict) -> None:
+    assert "candidate" not in result
+    assert "errors" not in result
+
+
 def test_no_subjects_completes_without_branch_work(monkeypatch):
     profile = UserProfile(name="John", location="London")
     fake_llm = PromptRoutingLLM(SubjectBucketList())
@@ -131,6 +136,7 @@ def test_no_subjects_completes_without_branch_work(monkeypatch):
 
     assert result["existing"] == {"user_john": profile}
     assert result["subjects"] == SubjectBucketList()
+    assert_no_extract_local_state_leaks(result)
     assert [schema for schema, _ in fake_llm.calls] == [SubjectBucketList]
 
 
@@ -183,6 +189,7 @@ def test_create_only_batch_merges_distinct_profiles_with_isolated_evidence(
         UUID(created_id)
 
     extraction_prompts = fake_llm.prompts_for(UserProfile)
+    assert len(extraction_prompts) == 2
     lucia_prompt = prompt_containing(extraction_prompts, "new subject labeled:\nLucia")
     maria_prompt = prompt_containing(extraction_prompts, "new subject labeled:\nMaria")
     assert_contains_only_subject_evidence(
@@ -199,6 +206,7 @@ def test_create_only_batch_merges_distinct_profiles_with_isolated_evidence(
         [lucia_message, lucia_repeat],
     )
     assert fake_llm.prompts_for(PatchProposalList) == []
+    assert_no_extract_local_state_leaks(result)
 
 
 def test_update_only_batch_merges_real_update_and_noop_with_isolated_evidence(
@@ -239,6 +247,7 @@ def test_update_only_batch_merges_real_update_and_noop_with_isolated_evidence(
         "user_lucia": lucia,
     }
     update_prompts = fake_llm.prompts_for(PatchProposalList)
+    assert len(update_prompts) == 2
     john_prompt = prompt_containing(update_prompts, "Obj_id = user_john:")
     lucia_prompt = prompt_containing(update_prompts, "Obj_id = user_lucia:")
     assert_contains_only_subject_evidence(
@@ -254,6 +263,7 @@ def test_update_only_batch_merges_real_update_and_noop_with_isolated_evidence(
         [john_message],
     )
     assert fake_llm.prompts_for(UserProfile) == []
+    assert_no_extract_local_state_leaks(result)
 
 
 def test_mixed_batch_preserves_every_create_and_update_result(monkeypatch):
@@ -319,6 +329,8 @@ def test_mixed_batch_preserves_every_create_and_update_result(monkeypatch):
         UserProfile: fake_llm.prompts_for(UserProfile),
         PatchProposalList: fake_llm.prompts_for(PatchProposalList),
     }
+    assert len(prompts_by_schema[UserProfile]) == 2
+    assert len(prompts_by_schema[PatchProposalList]) == 2
     branch_markers = {
         UserProfile: {
             "new subject labeled:\nLucia": (
@@ -345,3 +357,4 @@ def test_mixed_batch_preserves_every_create_and_update_result(monkeypatch):
         for marker, (included, excluded) in branches.items():
             prompt = prompt_containing(prompts_by_schema[schema], marker)
             assert_contains_only_subject_evidence(prompt, shared, included, excluded)
+    assert_no_extract_local_state_leaks(result)
