@@ -1,4 +1,4 @@
-# Project Logbook 1 - Professional Profile Chatbot. Toy example with ReAct agents.
+# Project Logbook Part 1 - Professional Profile Chatbot. Toy example with ReAct agents.
 
 [Project README](README.md)
 [Project Guidelines](GUIDELINES.md)
@@ -2556,3 +2556,49 @@ Future reference commit:
 5915446
 Complete Part 3 recovery and defensive testing expansion
 ```
+
+# Project Logbook Part 4 - Frontend And FastAPI Interface
+
+## 📅 Log Entry: June 21st, 2026 - Entry 1: Part 4 Roadmap Written
+
+Part 3 ended with the subject-planner refactor, create/update recovery
+contracts, parallel interrupt handling, and deterministic test MacroPlan
+completed. The graph is now stable enough to be used from something more
+comfortable than terminal harnesses or LangSmith experiments.
+
+Today we planned Part 4: migrating useful frontend and FastAPI shell ideas from
+the older read-only `chatbot2` project into this `chatbot3` repo. The goal is
+to copy only useful structure, leave `chatbot2` untouched, and adapt all copied
+code to the more complex `graphv3.py` architecture.
+
+The executable roadmap is recorded in:
+
+- `SHORT_TERM_PLANS/SHORT_TERM_PLAN4.md`
+
+That plan now covers:
+
+- copying or recreating a FastAPI backend shell
+- connecting `/chat` to `src.graphv3.graph`
+- creating stable `HumanMessage` IDs before graph invocation
+- preserving LangGraph `thread_id` checkpoint behavior
+- carrying a temporary `app_user_id` through the API/frontend boundary without
+  implementing authentication or persistence yet
+- supporting several simultaneous interrupts and resume-by-interrupt-ID
+- adapting the React frontend reducer and UI for thread controls, repair
+  payloads, aborts, and memory-only turns that may not emit visible assistant
+  text
+
+We also separated later ideas into future plans instead of mixing them into
+Part 4:
+
+- `SHORT_TERM_PLANS/SHORT_TERM_PLAN4_EVALS.md` records the later LangSmith /
+  live-LLM evaluation work to do after the interface exists.
+- `SHORT_TERM_PLANS/SHORT_TERM_PLAN5.md` records the future retrieval and
+  controlled Neo4j/LlamaIndex graph-memory persistence layer.
+- `SHORT_TERM_PLANS/SHORT_TERM_PLAN6.md` records the later dynamic ontology /
+  schema-evolution idea, after the manual persistence schema works.
+
+The important boundary for future work is now clear: Part 4 should make the
+current graph usable from a browser and API, while Part 5 will make memories
+durable, retrievable, app-user-scoped, and safer against duplication or
+ambiguity.

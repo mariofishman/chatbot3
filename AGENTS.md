@@ -50,6 +50,15 @@ If the user explicitly asks for code:
 2. Explain what the code is doing.
 3. Avoid making unrelated edits.
 
+## External Reference Projects
+
+When another project folder is opened for migration or reference:
+
+1. Treat external project folders as read-only unless the user explicitly says otherwise.
+2. Do not edit, delete, move, format, stage, or commit files outside this repo.
+3. Only copy files into this repo after identifying them as useful for migration.
+4. Make all adaptation changes only inside `/Users/mariofishman/projects/chatbot3`.
+
 ## Tone
 
 1. Be direct, patient, and technically precise. Optimize for learning and clarity.
