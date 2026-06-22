@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Start Part 4 by creating a usable browser chat interface for `graphv3.py`.
+Start Part 4 by creating a usable browser chat interface for the chatbot,
+while integrating the older user-facing conversation graph with the newer
+memory-processing graph.
 
 This phase reuses proven frontend and FastAPI shell code from the read-only
 reference project at:
@@ -11,21 +13,33 @@ reference project at:
 /Users/mariofishman/projects/chatbot2
 ```
 
-The goal is not to copy chatbot2's graph logic. `src/graphv3.py` remains the
-authoritative graph. Chatbot2 is only a reference for the API shell, streaming
-transport, frontend reducer, chat UI, thread ID handling, interrupt handling,
-and abort lifecycle.
+The goal is not to treat chatbot2's `graph.py` as obsolete. It solves a
+different problem from `src/graphv3.py`.
+
+- chatbot2's `graph.py` is the user-facing conversation graph: it asks
+  questions, decides what is missing, clarifies confusing replies, and keeps
+  the chat moving.
+- chatbot3's `src/graphv3.py` is the memory-processing graph: it reads human
+  messages, detects subjects, creates or updates `UserProfile` instances,
+  handles repair, and returns structured memory state.
+
+Part 4 must make these two graphs work together. Chatbot2 is a reference for
+the API shell, streaming transport, frontend reducer, chat UI, thread ID
+handling, interrupt handling, abort lifecycle, and the first version of the
+user-facing conversation graph.
 
 ## Compatibility With Completed Part 3
 
 Stage 4 starts after the Part 3 graph work recorded in `LOGBOOK.md` and
-`SHORT_TERM_PLAN3v5.md`. The frontend/API layer should wrap that completed
-graph rather than redesign it.
+`SHORT_TERM_PLAN3v5.md`. The frontend/API layer should preserve the completed
+memory graph while adding a user-facing conversation graph around it.
 
 Important current contracts:
 
 - `graphv3.py` is primarily a memory-update graph. A successful turn may
   produce profile state changes without producing visible assistant text.
+- chatbot2's `graph.py` contains useful user-facing behavior that `graphv3.py`
+  intentionally does not provide.
 - `MainState.messages` requires human messages, and `subject_planner_node(...)`
   requires every human message to have a stable unique `id`.
 - The backend must create `HumanMessage` objects with unique IDs before
@@ -75,16 +89,24 @@ Reusable backend ideas:
   - `abort`
   - `error`
 - multiline-safe SSE formatting idea
+- user-facing graph shape from `backend/app/graph/graph.py`
+- visible/internal LLM call tags for frontend filtering
+- `active_question` tracking
+- missing-field detection before asking the next question
+- clarification handling when the user asks what a question means
+- refusal / not-applicable tracking through `skipped_fields`
+- `interrupt(...)` as the handoff point from graph execution to user input
 
-Backend code that should not be copied directly:
+Backend code that should be reviewed and adapted, not blindly copied:
 
 - chatbot2's `backend/app/graph/graph.py`
 - chatbot2's graph nodes, prompts, schemas, and TrustCall extraction logic
 - chatbot2's old assumption that a resume payload is just a plain string
 
-Reason: chatbot3 has a much richer `graphv3.py` with subject planning,
-parallel fanout, create/update subgraphs, structured repair envelopes, and
-multi-interrupt behavior.
+Reason: chatbot2's graph is useful as the user-facing conversation graph, but
+its schema, extraction policy, and resume assumptions do not match
+`graphv3.py`. It should be copied only after deciding how the user-facing graph
+will coordinate with the memory-processing graph.
 
 ### Frontend Files Reviewed
 
@@ -158,12 +180,15 @@ chatbot2/backend/app/main.py
 Do not copy:
 
 ```text
-chatbot2/backend/app/graph/
 chatbot2/backend/checkpoints.sqlite
 chatbot2/backend/app/graph/checkpoints.db
 chatbot2/backend/.venv/
 chatbot2/frontend/node_modules/
 ```
+
+Do not copy `chatbot2/backend/app/graph/` blindly. Review it as the source for
+the user-facing graph, then copy/adapt only the parts that fit the new
+two-graph architecture.
 
 ## Target Chatbot3 Structure
 
@@ -186,31 +211,44 @@ frontend/
     lib/
 ```
 
-The backend should import the graph from chatbot3's current source, not from
+The backend should eventually coordinate the user-facing graph and memory
+graph. The memory graph comes from chatbot3's current source, not from
 chatbot2:
 
 ```python
 from src.graphv3 import graph
 ```
 
+The user-facing graph should be copied/adapted into chatbot3 before it is used.
 If import-path problems appear, solve them locally in chatbot3 rather than
 changing chatbot2.
 
 ## Backend Adaptation Requirements
 
-The FastAPI endpoint must adapt to chatbot3's graph contract.
+The FastAPI endpoint must adapt to the two-graph contract chosen in Step 2.
 
 ### Request Shape
 
 Support:
 
 - `message`: a new user message
-- `resume`: a mapping of LangGraph interrupt IDs to human repair payloads
+- `resume`: data used to continue a pending LangGraph interrupt
 - `thread_id`: optional on first request, required for resume
 - `app_user_id`: a temporary dev/manual user identity used only to prepare the
   API/frontend boundary for later app-user-scoped profile persistence
 
 `message` and `resume` must be mutually exclusive.
+
+After Step 2 and Step 3, define the exact resume shape for both interrupt
+families:
+
+- user-facing conversation interrupts may resume with ordinary chat text, such
+  as an answer to a follow-up question
+- memory-repair interrupts resume with explicit repair payloads keyed by
+  LangGraph interrupt ID
+
+The frontend should not force ordinary answers to conversation questions into
+the memory-repair JSON format.
 
 Real authentication is out of scope for this phase. For now, `app_user_id` may
 come from a simple frontend selector, local browser storage, or a development
@@ -223,7 +261,8 @@ Plan 5 will use when saving app-user-scoped `UserProfile` records. A later
 identity-linking layer may connect separate users' profile records when they
 appear to describe the same real-world person.
 
-The resume payload must support chatbot3's explicit repair envelopes, such as:
+Memory-repair resume payloads must support chatbot3's explicit repair
+envelopes, such as:
 
 ```json
 {
@@ -261,7 +300,8 @@ Keep or add these event types:
 - `thread_id`: emitted once near stream start
 - `text`: optional visible assistant text, if graph streaming exposes it
 - `state`: optional compact state snapshot for development inspection
-- `interrupt`: pending interrupt payloads, including interrupt IDs
+- `interrupt`: pending conversation or memory-repair interrupt payloads,
+  including interrupt IDs
 - `done`: normal completion
 - `abort`: user/client cancellation
 - `error`: backend or graph failure
@@ -269,7 +309,7 @@ Keep or add these event types:
 Each stream should have exactly one terminal event:
 
 - `done` for normal completion
-- `interrupt` when the graph pauses for human repair
+- `interrupt` when the graph pauses for human input
 - `abort` when the client cancels
 - `error` when the backend or graph fails
 
@@ -290,7 +330,8 @@ or submit several repairs when appropriate.
 
 ## Frontend Adaptation Requirements
 
-The frontend must support the current graph's human repair UX.
+The frontend must support the two-graph UX: ordinary visible conversation from
+the user-facing graph, plus memory-repair interruptions from `graphv3.py`.
 
 ### State Model
 
@@ -302,7 +343,9 @@ Start from chatbot2's reducer, then extend it to track:
 - temporary app user ID
 - a local list of known conversation threads
 - the active conversation thread
-- pending interrupts
+- pending user-facing conversation interrupts, if the selected architecture
+  exposes them separately
+- pending memory-repair interrupts
 - last state snapshot, if the backend emits one
 - error state
 
@@ -345,14 +388,21 @@ Out of scope for this phase:
 
 Minimum viable UX:
 
-- show pending interrupt payloads
+- distinguish user-facing conversation interrupts from memory-repair
+  interrupts
+- show pending memory-repair interrupt payloads
 - show the interrupt ID for debugging
-- allow the user to submit a JSON response for a selected interrupt
-- allow decline responses
+- allow the user to submit a JSON repair response for a selected memory-repair
+  interrupt
+- allow decline responses for memory-repair interrupts
+- treat normal chat replies to user-facing questions as ordinary user
+  messages in the UX, even if the backend internally converts them into
+  `Command(resume=...)` for a pending user-facing graph interrupt
 - resume with the same `thread_id`
-- support resolving one pending interrupt at a time by sending a resume map
-  keyed by the selected LangGraph interrupt ID
-- keep unresolved interrupts visible after a partial resume response
+- support resolving one pending memory-repair interrupt at a time by sending a
+  resume map keyed by the selected LangGraph interrupt ID
+- keep unresolved memory-repair interrupts visible after a partial resume
+  response
 
 The first version may use a developer-style JSON textarea. A polished repair
 form can come later.
@@ -373,7 +423,8 @@ Adapt:
 - normal completion display so memory-only turns can finish without assistant
   text
 - interrupt handling from one pending interrupt to a list/map of interrupts
-- resume request body from plain text to interrupt-ID keyed payloads
+- resume request body from one plain string to explicit payloads that can
+  distinguish conversation replies from memory-repair submissions
 - error and abort display so the user understands why a stream ended
 
 ## Execution Roadmap
@@ -396,25 +447,113 @@ Deliverables:
 
 Stop before frontend work until `/health` runs.
 
-### Step 2: Connect Backend To `graphv3.py`
+### Step 2: Decide The Two-Graph Runtime Architecture
 
-Adapt `/chat` to call chatbot3's compiled `graph`.
+Before wiring `/chat` permanently, decide how the user-facing conversation
+graph and memory-processing graph should coordinate.
+
+Open architectural question:
+
+Should `graphv3.py` run on every user turn, after every assistant response,
+only every few turns, only when selected messages look memory-relevant, or on
+small batches of recent human messages?
+
+Reference before deciding:
+
+- `bibliography/mem0_paper.pdf`
+- `bibliography/zep_temporal_knowledge_graph_agent_memory.pdf`
+- `bibliography/memmachine_ground_truth_preserving_memory.pdf`
+- `bibliography/memx_local_first_long_term_memory.pdf`
+- `bibliography/locomo_very_long_term_conversational_memory.pdf`
+
+Candidate policies:
+
+- every turn, blocking the response until memory processing finishes
+- every turn, but best-effort after the visible response is produced
+- selected messages only, based on a lightweight memory-relevance check
+- small batches every few turns or when the conversation becomes idle
+- explicit user/developer-triggered memory save during early testing
+
+Deliverables:
+
+- [ ] decide whether the first implementation blocks the visible response on
+  `graphv3.py` or runs memory processing after the visible response
+- [ ] decide whether memory processing receives one human message, selected
+  human messages, or a small batch
+- [ ] decide where the memory policy/coordinator lives
+- [ ] decide which graph owns the top-level `/chat` response
+- [ ] decide how user-facing graph state and memory graph state are kept
+  separate
+- [ ] preserve visible/internal tags so frontend streaming can hide internal
+  memory-processing calls
+- [ ] record the decision in this plan before continuing
+
+### Step 3: Build The User-Facing Conversation Graph
+
+Create the chatbot3 version of the user-facing graph, using chatbot2's
+`backend/app/graph/graph.py` as inspiration but adapting it to the architecture
+chosen in Step 2.
+
+This graph is responsible for the visible conversation with the user. It should
+not replace `graphv3.py`; it should decide what to say to the user and hand
+human-message data to the memory policy/coordinator when appropriate.
+
+Important boundary:
+
+The user-facing graph may keep lightweight conversational state, such as the
+current question and whether the user refused or asked for clarification. It
+should not become a second durable memory extractor. Durable `UserProfile`
+creation, update, repair, and merge-back remain the responsibility of
+`graphv3.py`.
+
+Deliverables:
+
+- [ ] copy or recreate the useful user-facing graph structure inside chatbot3
+- [ ] preserve visible/internal LLM tags
+- [ ] preserve the idea of `active_question`
+- [ ] preserve missing-information detection where it still fits
+- [ ] preserve clarification handling for user replies that ask what a question
+  means
+- [ ] preserve refusal / not-applicable handling where it still fits
+- [ ] remove or replace chatbot2-specific `ProfessionalSchema` assumptions
+- [ ] remove or replace chatbot2-specific TrustCall extraction assumptions
+- [ ] prevent chatbot2's old `extract_node(...)` role from duplicating
+  `graphv3.py` durable memory extraction
+- [ ] define how this graph emits visible assistant messages
+- [ ] define how this graph records human messages that may later be sent to
+  `graphv3.py`
+- [ ] run a small terminal/manual check of the user-facing graph before
+  connecting it to FastAPI
+
+### Step 4: Connect Backend To The Chosen Graph Architecture
+
+Adapt `/chat` to call the chosen user-facing graph and coordinate with
+`graphv3.py` according to the Step 2 memory policy.
 
 Deliverables:
 
 - [ ] new message invocation with `HumanMessage`
 - [ ] backend creates a stable unique ID for each new `HumanMessage`
 - [ ] resume invocation with `Command(resume=...)`
+- [ ] backend distinguishes a pending user-facing conversation interrupt from a
+  pending memory-repair interrupt before packaging resume input
+- [ ] ordinary replies to user-facing questions are converted to the correct
+  conversation-graph resume shape
+- [ ] memory-repair submissions are sent with the explicit repair payload shape
+  chosen for `graphv3.py`
 - [ ] backend-owned `thread_id`
 - [ ] accepted `app_user_id` is carried through the API boundary for future
   app-user-scoped persistence work without being inserted into `MainState`
 - [ ] SSE `thread_id`, `interrupt`, `done`, `abort`, and `error`
 - [ ] exactly one terminal SSE event per request
+- [ ] visible assistant text is streamed only from visible/user-facing graph
+  calls
+- [ ] internal memory-processing calls are hidden from the chat stream
 - [ ] enough logging or state output for development debugging
 
 Run a terminal/manual request before copying the frontend.
 
-### Step 3: Copy Frontend Shell
+### Step 5: Copy Frontend Shell
 
 Copy selected frontend files into `frontend/`.
 
@@ -425,7 +564,7 @@ Deliverables:
 - [ ] `streamSSE.ts` parses known events
 - [ ] old debugging leftovers removed
 
-### Step 4: Adapt Frontend Request/Reducer Contract
+### Step 6: Adapt Frontend Request/Reducer Contract
 
 Adapt the reducer and request body to chatbot3's event contract.
 
@@ -439,7 +578,7 @@ Deliverables:
 - [ ] switching the active thread changes which `thread_id` is sent next
 - [ ] errors and aborts are visible enough for development
 
-### Step 5: Add Minimal Thread Controls
+### Step 7: Add Minimal Thread Controls
 
 Add a simple developer-facing thread control panel.
 
@@ -454,22 +593,29 @@ Deliverables:
 - [ ] do not promise profile persistence across threads yet
 - [ ] do not promise deduplication or identity-linking across app users yet
 
-### Step 6: Add Minimal Interrupt Repair UI
+### Step 8: Add Minimal Parallel Interrupt Repair UI
 
-Add a simple developer-facing interrupt panel.
+Add a simple developer-facing interrupt panel that can manage several pending
+memory-repair interrupts at the same time.
 
 Deliverables:
 
-- [ ] list pending interrupts
-- [ ] inspect payload
-- [ ] paste JSON response
-- [ ] submit response for one interrupt ID
+- [ ] list all pending memory-repair interrupts
+- [ ] display each interrupt ID separately
+- [ ] inspect each interrupt payload separately
+- [ ] paste JSON response for one selected interrupt
+- [ ] submit response for one selected interrupt ID
+- [ ] send resume payloads keyed by LangGraph interrupt ID
 - [ ] preserve the other pending interrupts when only one interrupt is resumed
+- [ ] update the pending-interrupt list from the latest graph response after
+  each partial resume
+- [ ] keep successfully resolved repair responses from being submitted twice
 - [ ] support decline action
+- [ ] keep normal chat replies separate from memory-repair JSON submissions
 
 Do not over-polish the UI yet.
 
-### Step 7: Manual End-To-End Scenarios
+### Step 9: Manual End-To-End Scenarios
 
 Use the browser to verify:
 
@@ -484,16 +630,27 @@ Use the browser to verify:
 - [ ] switching to a new thread creates isolated message/checkpoint state
 - [ ] switching back to a previous local thread reuses that thread's checkpointed
   graph state
+- [ ] the user-facing graph can produce visible assistant responses
+- [ ] the user-facing graph can ask follow-up questions when information is
+  missing
+- [ ] the user-facing graph can clarify a question when the user asks what it
+  means
 - [ ] memory-only graph turns can complete without visible assistant text while
   still exposing useful state or completion feedback
 - [ ] create path can complete
 - [ ] update path can complete
+- [ ] visible/internal tag filtering prevents memory-processing calls from
+  showing as assistant chat text
+- [ ] the selected memory policy sends the intended human messages or batches
+  to `graphv3.py`
 - [ ] create repair interrupt can be displayed and resumed
 - [ ] update repair interrupt can be displayed and resumed
 - [ ] multiple pending interrupts are visible and addressable by ID
+- [ ] normal replies to user-facing follow-up questions are not misrouted as
+  memory-repair payloads
 - [ ] Stop/Escape abort still works
 
-### Step 8: Decide What To Polish Next
+### Step 10: Decide What To Polish Next
 
 After the shell works, choose between:
 
@@ -508,9 +665,18 @@ Part 4 frontend/FastAPI migration is done when:
 
 - [ ] chatbot3 has its own FastAPI backend shell
 - [ ] chatbot3 has its own React frontend shell
-- [ ] the frontend can send messages through the FastAPI backend to `graphv3.py`
-- [ ] the frontend can show useful completion/state feedback even when `graphv3.py`
-  produces no visible assistant text
+- [ ] chatbot3 has a clear first version of the user-facing conversation graph
+  adapted from chatbot2's `graph.py`
+- [ ] chatbot3 has a clear first version of the memory policy/coordinator that
+  decides when to send human messages to `graphv3.py`
+- [ ] the frontend can send messages through the FastAPI backend to the
+  user-facing graph
+- [ ] the memory policy can send the intended human messages or batches to
+  `graphv3.py`
+- [ ] the frontend can show useful completion/state feedback even when memory
+  processing produces no visible assistant text
+- [ ] visible/internal tag filtering prevents memory-processing calls from
+  appearing as assistant chat text
 - [ ] the frontend/API can carry a temporary `app_user_id` for future persistence
   routing of app-user-scoped profile records without implementing
   authentication
@@ -525,4 +691,6 @@ Part 4 frontend/FastAPI migration is done when:
 - [ ] the frontend can resume at least one interrupt by ID
 - [ ] the frontend can leave other pending interrupts visible when only one
   interrupt is resolved
+- [ ] normal user replies to conversation questions remain separate from
+  memory-repair interrupt submissions
 - [ ] chatbot2 remains untouched

@@ -2567,9 +2567,21 @@ completed. The graph is now stable enough to be used from something more
 comfortable than terminal harnesses or LangSmith experiments.
 
 Today we planned Part 4: migrating useful frontend and FastAPI shell ideas from
-the older read-only `chatbot2` project into this `chatbot3` repo. The goal is
-to copy only useful structure, leave `chatbot2` untouched, and adapt all copied
-code to the more complex `graphv3.py` architecture.
+the older read-only `chatbot2` project into this `chatbot3` repo. During the
+review, we corrected an important architectural assumption. `graphv3.py` is
+not simply a newer replacement for chatbot2's `graph.py`; they serve different
+roles and need to work together.
+
+The corrected Part 4 architecture treats chatbot2's `graph.py` as the source
+of the user-facing conversation graph: asking questions, clarifying confusing
+replies, tracking the active question, handling refused or not-applicable
+answers, and deciding what should be visible to the frontend. `graphv3.py`
+remains the memory-processing graph: reading human messages, detecting
+subjects, creating or updating `UserProfile` instances, handling repair, and
+returning structured memory state.
+
+The goal is to copy only useful structure, leave `chatbot2` untouched, and
+adapt copied code so the user-facing graph and memory graph coordinate cleanly.
 
 The executable roadmap is recorded in:
 
@@ -2578,15 +2590,26 @@ The executable roadmap is recorded in:
 That plan now covers:
 
 - copying or recreating a FastAPI backend shell
-- connecting `/chat` to `src.graphv3.graph`
+- deciding the runtime architecture for the two graphs before wiring `/chat`
+- reviewing the local bibliography, including `bibliography/mem0_paper.pdf`,
+  to decide whether memory processing should run every turn, after visible
+  responses, on selected messages, or on small batches
+- building a chatbot3 user-facing conversation graph inspired by chatbot2's
+  `graph.py`
+- preserving visible/internal LLM tags so frontend streaming can show only
+  user-facing assistant output
+- coordinating the user-facing graph with `src.graphv3.graph`
 - creating stable `HumanMessage` IDs before graph invocation
 - preserving LangGraph `thread_id` checkpoint behavior
 - carrying a temporary `app_user_id` through the API/frontend boundary without
   implementing authentication or persistence yet
-- supporting several simultaneous interrupts and resume-by-interrupt-ID
+- distinguishing user-facing conversation interrupts from memory-repair
+  interrupts
+- supporting several simultaneous memory-repair interrupts and
+  resume-by-interrupt-ID
 - adapting the React frontend reducer and UI for thread controls, repair
-  payloads, aborts, and memory-only turns that may not emit visible assistant
-  text
+  payloads, ordinary conversation replies, aborts, and memory-only turns that
+  may not emit visible assistant text
 
 We also separated later ideas into future plans instead of mixing them into
 Part 4:
@@ -2598,7 +2621,8 @@ Part 4:
 - `SHORT_TERM_PLANS/SHORT_TERM_PLAN6.md` records the later dynamic ontology /
   schema-evolution idea, after the manual persistence schema works.
 
-The important boundary for future work is now clear: Part 4 should make the
-current graph usable from a browser and API, while Part 5 will make memories
+The important boundary for future work is now clearer: Part 4 should make the
+chatbot usable from a browser and API by integrating a user-facing conversation
+graph with the existing memory-processing graph. Part 5 will make memories
 durable, retrievable, app-user-scoped, and safer against duplication or
 ambiguity.
